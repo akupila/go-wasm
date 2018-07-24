@@ -99,6 +99,11 @@ type FunctionPayload struct {
 	TypeIndices []uint32 `json:"type_indices,omitempty"`
 }
 
+// TablePayload is the payload for a Table section.
+type TablePayload struct {
+	Entries []*TableType `json:"entries,omitempty"`
+}
+
 // Parse parses the input to a WASM module.
 func (p *Parser) Parse(rd io.Reader) (*Module, error) {
 	r := bufio.NewReader(rd)
@@ -173,6 +178,8 @@ func (p *Parser) readSectionHeader(r io.Reader) error {
 		s.Payload, err = readImportPayload(r)
 	case SectionFunction:
 		s.Payload, err = readFunctionPayload(r)
+	case SectionTable:
+		s.Payload, err = readTablePayload(r)
 	default:
 		// Skip section
 		offset := int64(payloadLen)
@@ -335,6 +342,32 @@ func readFunctionPayload(r io.Reader) (interface{}, error) {
 		if err := readVarUint32(r, &pl.TypeIndices[i]); err != nil {
 			return nil, err
 		}
+	}
+
+	return &pl, nil
+}
+
+func readTablePayload(r io.Reader) (interface{}, error) {
+	var count uint32
+	if err := readVarUint32(r, &count); err != nil {
+		return nil, fmt.Errorf("read section count: %v", err)
+	}
+
+	pl := TablePayload{
+		Entries: make([]*TableType, count),
+	}
+
+	for i := uint32(0); i < count; i++ {
+		var t TableType
+		if err := readOpCode(r, &t.ElemType); err != nil {
+			return nil, fmt.Errorf("read table element type: %v", err)
+		}
+		limits, err := readResizableLimits(r)
+		if err != nil {
+			return nil, fmt.Errorf("read table resizable limits: %v", err)
+		}
+		t.Limits = limits
+		pl.Entries[i] = &t
 	}
 
 	return &pl, nil
