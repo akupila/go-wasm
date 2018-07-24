@@ -126,6 +126,13 @@ type LocalEntry struct {
 	Type  LangType `json:"type,omitempty"`
 }
 
+// DataSegment is a segment in the Data section.
+type DataSegment struct {
+	Index  uint32   `json:"index"`
+	Offset []OpCode `json:"offset,omitempty"`
+	Data   []byte   `json:"data,omitempty"`
+}
+
 // Parse parses the input to a WASM module.
 func (p *Parser) Parse(rd io.Reader) (*Module, error) {
 	r := bufio.NewReader(rd)
@@ -218,6 +225,8 @@ func (p *Parser) readSectionHeader(r io.Reader) error {
 		s.Payload, err = readElementPayload(r)
 	case SectionCode:
 		s.Payload, err = readCodePayload(r)
+	case SectionData:
+		s.Payload, err = readDataPayload(r)
 	default:
 		// Skip section
 		offset := int64(payloadLen)
@@ -574,6 +583,41 @@ func readCodePayload(r io.Reader) (interface{}, error) {
 		e.Code = code
 
 		pl[i] = &e
+	}
+
+	return &pl, nil
+}
+
+func readDataPayload(r io.Reader) (interface{}, error) {
+	var count uint32
+	if err := readVarUint32(r, &count); err != nil {
+		return nil, fmt.Errorf("read section count: %v", err)
+	}
+
+	pl := make([]*DataSegment, count)
+
+	for i := range pl {
+		var s DataSegment
+
+		if err := readVarUint32(r, &s.Index); err != nil {
+			return nil, fmt.Errorf("read linear memory index: %v", err)
+		}
+
+		if err := readExpr(r, &s.Offset); err != nil {
+			return nil, fmt.Errorf("read offset initializer expression: %v", err)
+		}
+
+		var size uint32
+		if err := readVarUint32(r, &size); err != nil {
+			return nil, fmt.Errorf("read data size: %v", err)
+		}
+
+		s.Data = make([]byte, size)
+		if err := read(r, s.Data); err != nil {
+			return nil, fmt.Errorf("read data: %v", err)
+		}
+
+		pl[i] = &s
 	}
 
 	return &pl, nil
