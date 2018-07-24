@@ -1,5 +1,6 @@
 //go:generate stringer -type SectionID -trimprefix Section
 //go:generate stringer -type OpCode -trimprefix Op
+//go:generate stringer -type ExternalKind -trimprefix ExtKind
 
 package wasm
 
@@ -76,6 +77,27 @@ const (
 	OpBlock OpCode = 0x40
 )
 
-func (s OpCode) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%q", s.String())), nil
+func (o OpCode) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("%q", o.String())), nil
+}
+
+// ExternalKind defines the type for an external import.
+type ExternalKind uint8
+
+const (
+	// ExtKindFunction indicates a Function import or definition.
+	ExtKindFunction ExternalKind = iota
+
+	// ExtKindTable indicates a Table import or definition.
+	ExtKindTable
+
+	// ExtKindMemory indicates a Memory import or definition.
+	ExtKindMemory
+
+	// ExtKindGlobal indicates a Global import or definition.
+	ExtKindGlobal
+)
+
+func (e ExternalKind) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("%q", e.String())), nil
 }
