@@ -103,6 +103,16 @@ type ExportEntry struct {
 	Index uint32       `json:"index,omitempty"`
 }
 
+// An ElemSegment is a segment in the Element section.
+type ElemSegment struct {
+	// Index is the table index
+	Index uint32 `json:"index"`
+	// Offset is an expression that computes the offset to place the elements.
+	Offset []OpCode `json:"offset"`
+	// Elems is a sequence of function indices.
+	Elems []uint32 `json:"elems,omitempty"`
+}
+
 // Parse parses the input to a WASM module.
 func (p *Parser) Parse(rd io.Reader) (*Module, error) {
 	r := bufio.NewReader(rd)
@@ -166,31 +176,33 @@ func (p *Parser) readSectionHeader(r io.Reader) error {
 	var err error
 
 	switch s.ID {
-	case SectionCustom:
-		s.Payload = make([]byte, payloadLen)
-		if err := read(r, s.Payload); err != nil {
-			return fmt.Errorf("read custom section payload: %v", err)
-		}
-	case SectionType:
-		s.Payload, err = readTypePayload(r)
-	case SectionImport:
-		s.Payload, err = readImportPayload(r)
-	case SectionFunction:
-		s.Payload, err = readFunctionPayload(r)
-	case SectionTable:
-		s.Payload, err = readTablePayload(r)
-	case SectionMemory:
-		s.Payload, err = readMemoryPayload(r)
-	case SectionGlobal:
-		s.Payload, err = readGlobalPayload(r)
-	case SectionExport:
-		s.Payload, err = readExportPayload(r)
-	case SectionStart:
-		var index uint32
-		if err := readVarUint32(r, &index); err != nil {
-			return fmt.Errorf("read start section index: %v", err)
-		}
-		s.Payload = index
+	// case SectionCustom:
+	// 	s.Payload = make([]byte, payloadLen)
+	// 	if err := read(r, s.Payload); err != nil {
+	// 		return fmt.Errorf("read custom section payload: %v", err)
+	// 	}
+	// case SectionType:
+	// 	s.Payload, err = readTypePayload(r)
+	// case SectionImport:
+	// 	s.Payload, err = readImportPayload(r)
+	// case SectionFunction:
+	// 	s.Payload, err = readFunctionPayload(r)
+	// case SectionTable:
+	// 	s.Payload, err = readTablePayload(r)
+	// case SectionMemory:
+	// 	s.Payload, err = readMemoryPayload(r)
+	// case SectionGlobal:
+	// 	s.Payload, err = readGlobalPayload(r)
+	// case SectionExport:
+	// 	s.Payload, err = readExportPayload(r)
+	// case SectionStart:
+	// 	var index uint32
+	// 	if err := readVarUint32(r, &index); err != nil {
+	// 		return fmt.Errorf("read start section index: %v", err)
+	// 	}
+	// 	s.Payload = index
+	case SectionElement:
+		s.Payload, err = readElementSection(r)
 	default:
 		// Skip section
 		offset := int64(payloadLen)
@@ -456,6 +468,42 @@ func readExportPayload(r io.Reader) (interface{}, error) {
 
 		if err := readVarUint32(r, &e.Index); err != nil {
 			return nil, fmt.Errorf("read index: %v", err)
+		}
+
+		pl[i] = &e
+	}
+
+	return &pl, nil
+}
+
+func readElementSection(r io.Reader) (interface{}, error) {
+	var count uint32
+	if err := readVarUint32(r, &count); err != nil {
+		return nil, fmt.Errorf("read section count: %v", err)
+	}
+
+	pl := make([]*ElemSegment, count)
+
+	for i := uint32(0); i < count; i++ {
+		var e ElemSegment
+
+		if err := readVarUint32(r, &e.Index); err != nil {
+			return nil, fmt.Errorf("read element index: %v", err)
+		}
+
+		if err := readExpr(r, &e.Offset); err != nil {
+			return nil, fmt.Errorf("read elemenet offset expression: %v", err)
+		}
+
+		var numElem uint32
+		if err := readVarUint32(r, &numElem); err != nil {
+			return nil, fmt.Errorf("read number of elements: %v", err)
+		}
+		e.Elems = make([]uint32, int(numElem))
+		for i := range e.Elems {
+			if err := readVarUint32(r, &e.Elems[i]); err != nil {
+				return nil, fmt.Errorf("read element function index %d: %v", i, err)
+			}
 		}
 
 		pl[i] = &e
