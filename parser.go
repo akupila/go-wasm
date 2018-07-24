@@ -94,21 +94,6 @@ type ResizableLimits struct {
 	Maximum uint32 `json:"maximum,omitempty"`
 }
 
-// FunctionPayload is the payload for a Function section.
-type FunctionPayload struct {
-	TypeIndices []uint32 `json:"type_indices,omitempty"`
-}
-
-// TablePayload is the payload for a Table section.
-type TablePayload struct {
-	Entries []*TableType `json:"entries,omitempty"`
-}
-
-// MemoryPayload is the payload for a Memory section.
-type MemoryPayload struct {
-	Entries []*MemoryType `json:"entries,omitempty"`
-}
-
 // Parse parses the input to a WASM module.
 func (p *Parser) Parse(rd io.Reader) (*Module, error) {
 	r := bufio.NewReader(rd)
@@ -341,12 +326,10 @@ func readFunctionPayload(r io.Reader) (interface{}, error) {
 		return nil, fmt.Errorf("read section count: %v", err)
 	}
 
-	pl := FunctionPayload{
-		TypeIndices: make([]uint32, count),
-	}
+	pl := make([]uint32, count)
 
 	for i := uint32(0); i < count; i++ {
-		if err := readVarUint32(r, &pl.TypeIndices[i]); err != nil {
+		if err := readVarUint32(r, &pl[i]); err != nil {
 			return nil, err
 		}
 	}
@@ -360,9 +343,7 @@ func readTablePayload(r io.Reader) (interface{}, error) {
 		return nil, fmt.Errorf("read section count: %v", err)
 	}
 
-	pl := TablePayload{
-		Entries: make([]*TableType, count),
-	}
+	pl := make([]*TableType, count)
 
 	for i := uint32(0); i < count; i++ {
 		var t TableType
@@ -374,7 +355,7 @@ func readTablePayload(r io.Reader) (interface{}, error) {
 			return nil, fmt.Errorf("read table resizable limits: %v", err)
 		}
 		t.Limits = limits
-		pl.Entries[i] = &t
+		pl[i] = &t
 	}
 
 	return &pl, nil
@@ -386,9 +367,7 @@ func readMemoryPayload(r io.Reader) (interface{}, error) {
 		return nil, fmt.Errorf("read section count: %v", err)
 	}
 
-	pl := MemoryPayload{
-		Entries: make([]*MemoryType, count),
-	}
+	pl := make([]*MemoryType, count)
 
 	for i := uint32(0); i < count; i++ {
 		var t MemoryType
@@ -397,7 +376,7 @@ func readMemoryPayload(r io.Reader) (interface{}, error) {
 			return nil, fmt.Errorf("read memory resizable limits: %v", err)
 		}
 		t.Limits = limits
-		pl.Entries[i] = &t
+		pl[i] = &t
 	}
 
 	return &pl, nil
