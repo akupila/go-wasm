@@ -74,7 +74,7 @@ type GlobalType struct {
 	Mutable     bool   `json:"mutable,omitempty"`
 }
 
-// GlobalType is the Type field when Kind = ExtKindTable.
+// TableType is the Type field when Kind = ExtKindTable.
 type TableType struct {
 	ElemType OpCode           `json:"elem_type,omitempty"`
 	Limits   *ResizableLimits `json:"limits,omitempty"`
