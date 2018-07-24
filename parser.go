@@ -94,6 +94,11 @@ type ResizableLimits struct {
 	Maximum uint32 `json:"maximum,omitempty"`
 }
 
+// FunctionPayload is the payload for a Function section.
+type FunctionPayload struct {
+	TypeIndices []uint32 `json:"type_indices,omitempty"`
+}
+
 // Parse parses the input to a WASM module.
 func (p *Parser) Parse(rd io.Reader) (*Module, error) {
 	r := bufio.NewReader(rd)
@@ -166,6 +171,8 @@ func (p *Parser) readSectionHeader(r io.Reader) error {
 		s.Payload, err = readTypePayload(r)
 	case SectionImport:
 		s.Payload, err = readImportPayload(r)
+	case SectionFunction:
+		s.Payload, err = readFunctionPayload(r)
 	default:
 		// Skip section
 		offset := int64(payloadLen)
@@ -309,6 +316,25 @@ func readImportPayload(r io.Reader) (interface{}, error) {
 		}
 
 		pl.Entries[i] = &e
+	}
+
+	return &pl, nil
+}
+
+func readFunctionPayload(r io.Reader) (interface{}, error) {
+	var count uint32
+	if err := readVarUint32(r, &count); err != nil {
+		return nil, fmt.Errorf("read section count: %v", err)
+	}
+
+	pl := FunctionPayload{
+		TypeIndices: make([]uint32, count),
+	}
+
+	for i := uint32(0); i < count; i++ {
+		if err := readVarUint32(r, &pl.TypeIndices[i]); err != nil {
+			return nil, err
+		}
 	}
 
 	return &pl, nil
