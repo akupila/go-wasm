@@ -1,10 +1,21 @@
 package wasm
 
 import (
-	"bufio"
 	"encoding/binary"
 	"io"
 )
+
+func read(r io.Reader, v interface{}) error {
+	return binary.Read(r, binary.LittleEndian, v)
+}
+
+func readByte(r io.Reader) (byte, error) {
+	b := make([]byte, 1)
+	if _, err := r.Read(b); err != nil {
+		return 0, err
+	}
+	return b[0], nil
+}
 
 func readVarUint1(r io.Reader, v *uint8) error {
 	return binary.Read(r, binary.LittleEndian, v)
@@ -18,10 +29,10 @@ func readVarUint7(r io.Reader, v *uint8) error {
 	return nil
 }
 
-func readVarUint32(r *bufio.Reader, v *uint32) error {
+func readVarUint32(r io.Reader, v *uint32) error {
 	var shift uint32
 	for {
-		b, err := r.ReadByte()
+		b, err := readByte(r)
 		if err != nil {
 			return err
 		}
@@ -47,10 +58,10 @@ func readVarInt7(r io.Reader, v *int8) error {
 	return nil
 }
 
-func readVarInt32(r *bufio.Reader, v *int32) error {
+func readVarInt32(r io.Reader, v *int32) error {
 	var shift uint32
 	for {
-		b, err := r.ReadByte()
+		b, err := readByte(r)
 		if err != nil {
 			return err
 		}
@@ -72,4 +83,13 @@ func varUint32Size(v uint32) int {
 		v = v >> 8
 	}
 	return s
+}
+
+func readOpCode(r io.Reader, v *OpCode) error {
+	var t int8
+	if err := readVarInt7(r, &t); err != nil {
+		return err
+	}
+	*v = OpCode(t)
+	return nil
 }

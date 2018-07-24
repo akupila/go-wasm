@@ -2,9 +2,9 @@ package wasm
 
 import (
 	"bufio"
-	"encoding/binary"
 	"fmt"
 	"io"
+	"io/ioutil"
 )
 
 const magicnumber = 0x6d736100 // \0asm
@@ -116,25 +116,25 @@ func (p *Parser) Parse(rd io.Reader) (*Module, error) {
 	}
 }
 
-func (p *Parser) readFilePreamble(r *bufio.Reader) error {
+func (p *Parser) readFilePreamble(r io.Reader) error {
 	var header uint32
-	if err := binary.Read(r, binary.LittleEndian, &header); err != nil {
+	if err := read(r, &header); err != nil {
 		return fmt.Errorf("reader header: %v", err)
 	}
 	if header != magicnumber {
 		return fmt.Errorf("not a wasm file, expected header 0x%x, got 0x%x", magicnumber, header)
 	}
-	if err := binary.Read(r, binary.LittleEndian, &p.mod.Version); err != nil {
+	if err := read(r, &p.mod.Version); err != nil {
 		return fmt.Errorf("read version: %v", err)
 	}
 	p.state = stateBeginWASM
 	return nil
 }
 
-func (p *Parser) readSectionHeader(r *bufio.Reader) error {
+func (p *Parser) readSectionHeader(r io.Reader) error {
 	var s Section
 	var payloadLen, nameLen uint32
-	if err := binary.Read(r, binary.LittleEndian, &s.ID); err != nil {
+	if err := read(r, &s.ID); err != nil {
 		return fmt.Errorf("read section id: %v", err)
 	}
 	if err := readVarUint32(r, &payloadLen); err != nil {
@@ -145,7 +145,7 @@ func (p *Parser) readSectionHeader(r *bufio.Reader) error {
 			return fmt.Errorf("read section name length: %v", err)
 		}
 		name := make([]byte, nameLen)
-		if err := binary.Read(r, binary.LittleEndian, &name); err != nil {
+		if err := read(r, &name); err != nil {
 			return fmt.Errorf("read section name: %v", err)
 		}
 		s.Name = string(name)
@@ -159,7 +159,7 @@ func (p *Parser) readSectionHeader(r *bufio.Reader) error {
 	switch s.ID {
 	case SectionCustom:
 		s.Payload = make([]byte, payloadLen)
-		if err := binary.Read(r, binary.LittleEndian, s.Payload); err != nil {
+		if err := read(r, s.Payload); err != nil {
 			return fmt.Errorf("read section payload: %v", err)
 		}
 	case SectionType:
@@ -168,7 +168,8 @@ func (p *Parser) readSectionHeader(r *bufio.Reader) error {
 		s.Payload, err = readImportPayload(r)
 	default:
 		// Skip section
-		if _, err := r.Discard(int(payloadLen)); err != nil {
+		offset := int64(payloadLen)
+		if _, err := io.CopyN(ioutil.Discard, r, offset); err != nil {
 			return fmt.Errorf("discard section payload: %v", err)
 		}
 	}
@@ -183,7 +184,7 @@ func (p *Parser) readSectionHeader(r *bufio.Reader) error {
 	return nil
 }
 
-func readTypePayload(r *bufio.Reader) (interface{}, error) {
+func readTypePayload(r io.Reader) (interface{}, error) {
 	var count uint32
 	if err := readVarUint32(r, &count); err != nil {
 		return nil, fmt.Errorf("read section count: %v", err)
@@ -230,7 +231,7 @@ func readTypePayload(r *bufio.Reader) (interface{}, error) {
 	return &pl, nil
 }
 
-func readImportPayload(r *bufio.Reader) (interface{}, error) {
+func readImportPayload(r io.Reader) (interface{}, error) {
 	var count uint32
 	if err := readVarUint32(r, &count); err != nil {
 		return nil, fmt.Errorf("read section count: %v", err)
@@ -249,7 +250,7 @@ func readImportPayload(r *bufio.Reader) (interface{}, error) {
 		}
 
 		modName := make([]byte, moduleLen)
-		if err := binary.Read(r, binary.LittleEndian, modName); err != nil {
+		if err := read(r, modName); err != nil {
 			return nil, fmt.Errorf("read module name")
 		}
 		e.Module = string(modName)
@@ -260,12 +261,12 @@ func readImportPayload(r *bufio.Reader) (interface{}, error) {
 		}
 
 		fieldName := make([]byte, fieldLen)
-		if err := binary.Read(r, binary.LittleEndian, fieldName); err != nil {
+		if err := read(r, fieldName); err != nil {
 			return nil, fmt.Errorf("read field name")
 		}
 		e.Field = string(fieldName)
 
-		kind, err := r.ReadByte()
+		kind, err := readByte(r)
 		if err != nil {
 			return nil, fmt.Errorf("read kind: %v", err)
 		}
@@ -302,7 +303,7 @@ func readImportPayload(r *bufio.Reader) (interface{}, error) {
 			if err := readOpCode(r, &t.ContentType); err != nil {
 				return nil, fmt.Errorf("read global content type: %v", err)
 			}
-			if err := binary.Read(r, binary.LittleEndian, &t.Mutable); err != nil {
+			if err := read(r, &t.Mutable); err != nil {
 				return nil, fmt.Errorf("read global mutability: %v", err)
 			}
 		}
@@ -313,20 +314,11 @@ func readImportPayload(r *bufio.Reader) (interface{}, error) {
 	return &pl, nil
 }
 
-func readOpCode(r *bufio.Reader, v *OpCode) error {
-	var t int8
-	if err := readVarInt7(r, &t); err != nil {
-		return err
-	}
-	*v = OpCode(t)
-	return nil
-}
-
-func readResizableLimits(r *bufio.Reader) (*ResizableLimits, error) {
+func readResizableLimits(r io.Reader) (*ResizableLimits, error) {
 	var l ResizableLimits
 
 	var hasMax bool
-	if err := binary.Read(r, binary.LittleEndian, &hasMax); err != nil {
+	if err := read(r, &hasMax); err != nil {
 		return nil, fmt.Errorf("flags: %v", err)
 	}
 	if err := readVarUint32(r, &l.Initial); err != nil {
