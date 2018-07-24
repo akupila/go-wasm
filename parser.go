@@ -185,6 +185,12 @@ func (p *Parser) readSectionHeader(r io.Reader) error {
 		s.Payload, err = readGlobalPayload(r)
 	case SectionExport:
 		s.Payload, err = readExportPayload(r)
+	case SectionStart:
+		var index uint32
+		if err := readVarUint32(r, &index); err != nil {
+			return fmt.Errorf("read start section index: %v", err)
+		}
+		s.Payload = index
 	default:
 		// Skip section
 		offset := int64(payloadLen)
