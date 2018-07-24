@@ -176,33 +176,33 @@ func (p *Parser) readSectionHeader(r io.Reader) error {
 	var err error
 
 	switch s.ID {
-	// case SectionCustom:
-	// 	s.Payload = make([]byte, payloadLen)
-	// 	if err := read(r, s.Payload); err != nil {
-	// 		return fmt.Errorf("read custom section payload: %v", err)
-	// 	}
-	// case SectionType:
-	// 	s.Payload, err = readTypePayload(r)
-	// case SectionImport:
-	// 	s.Payload, err = readImportPayload(r)
-	// case SectionFunction:
-	// 	s.Payload, err = readFunctionPayload(r)
-	// case SectionTable:
-	// 	s.Payload, err = readTablePayload(r)
-	// case SectionMemory:
-	// 	s.Payload, err = readMemoryPayload(r)
-	// case SectionGlobal:
-	// 	s.Payload, err = readGlobalPayload(r)
-	// case SectionExport:
-	// 	s.Payload, err = readExportPayload(r)
-	// case SectionStart:
-	// 	var index uint32
-	// 	if err := readVarUint32(r, &index); err != nil {
-	// 		return fmt.Errorf("read start section index: %v", err)
-	// 	}
-	// 	s.Payload = index
+	case SectionCustom:
+		s.Payload = make([]byte, payloadLen)
+		if err := read(r, s.Payload); err != nil {
+			return fmt.Errorf("read custom section payload: %v", err)
+		}
+	case SectionType:
+		s.Payload, err = readTypePayload(r)
+	case SectionImport:
+		s.Payload, err = readImportPayload(r)
+	case SectionFunction:
+		s.Payload, err = readFunctionPayload(r)
+	case SectionTable:
+		s.Payload, err = readTablePayload(r)
+	case SectionMemory:
+		s.Payload, err = readMemoryPayload(r)
+	case SectionGlobal:
+		s.Payload, err = readGlobalPayload(r)
+	case SectionExport:
+		s.Payload, err = readExportPayload(r)
+	case SectionStart:
+		var index uint32
+		if err := readVarUint32(r, &index); err != nil {
+			return fmt.Errorf("read start section index: %v", err)
+		}
+		s.Payload = index
 	case SectionElement:
-		s.Payload, err = readElementSection(r)
+		s.Payload, err = readElementPayload(r)
 	default:
 		// Skip section
 		offset := int64(payloadLen)
@@ -476,7 +476,7 @@ func readExportPayload(r io.Reader) (interface{}, error) {
 	return &pl, nil
 }
 
-func readElementSection(r io.Reader) (interface{}, error) {
+func readElementPayload(r io.Reader) (interface{}, error) {
 	var count uint32
 	if err := readVarUint32(r, &count); err != nil {
 		return nil, fmt.Errorf("read section count: %v", err)
