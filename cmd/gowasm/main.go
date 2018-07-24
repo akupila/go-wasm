@@ -1,11 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 
-	wasm "github.com/akupila/gowasm"
+	wasm "github.com/akupila/go-wasm"
 )
 
 func main() {
@@ -33,9 +34,9 @@ func main() {
 
 	_ = m
 
-	// j, err := json.MarshalIndent(m, "", "\t")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// fmt.Println(string(j))
+	j, err := json.MarshalIndent(m, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(j))
 }

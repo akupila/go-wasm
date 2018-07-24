@@ -17,23 +17,28 @@ const (
 	stateEndSection
 )
 
+// A Parser parses wasm files.
+//
+// See: https://github.com/WebAssembly/design/blob/master/BinaryEncoding.md
 type Parser struct {
 	state state
 	mod   Module
 }
 
+// A Section is a single section in the WASM file.
 type Section struct {
-	ID      uint8
+	ID      SectionID
 	Name    string
 	Payload []byte
 }
 
+// A Module represents a WASM module.
 type Module struct {
 	Version  uint32
 	Sections []*Section
 }
 
-// See: https://github.com/WebAssembly/design/blob/master/BinaryEncoding.md
+// Parse parses the input to a WASM module.
 func (p *Parser) Parse(rd io.Reader) (*Module, error) {
 	r := bufio.NewReader(rd)
 	for {
