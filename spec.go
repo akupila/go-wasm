@@ -1,4 +1,5 @@
 //go:generate stringer -type SectionID -trimprefix Section
+//go:generate stringer -type OpCode -trimprefix Op
 
 package wasm
 
@@ -46,5 +47,35 @@ const (
 )
 
 func (s SectionID) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("%q", s.String())), nil
+}
+
+// OpCode is an operation code.
+type OpCode int8
+
+const (
+	// OpInt32 is the op code for a 32 bit signed integer.
+	OpInt32 OpCode = 0x7F
+
+	// OpInt64 is the op code for a 64 bit signed integer.
+	OpInt64 OpCode = 0x7E
+
+	// OpFloat32 is the op code for a 32 bit float.
+	OpFloat32 OpCode = 0x7D
+
+	// OpFloat64 is the op code for a 64 bit float.
+	OpFloat64 OpCode = 0x7C
+
+	// OpAnyFunc is the op code for a function with any signatrue.
+	OpAnyFunc OpCode = 0x70
+
+	// OpFunc is the op code for a function.
+	OpFunc OpCode = 0x60
+
+	// OpBlock is the op for a pseudo type representing an empty block_type.
+	OpBlock OpCode = 0x40
+)
+
+func (s OpCode) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("%q", s.String())), nil
 }
