@@ -38,11 +38,6 @@ type Section struct {
 	Payload interface{} `json:"payload,omitempty"`
 }
 
-// TypePayload is the payload for a Type section.
-type TypePayload struct {
-	Entries []*TypeEntry `json:"entries,omitempty"`
-}
-
 // TypeEntry is an entry for a type definition.
 type TypeEntry struct {
 	Form        LangType `json:"form,omitempty"`
@@ -214,9 +209,7 @@ func readTypePayload(r io.Reader) (interface{}, error) {
 		return nil, fmt.Errorf("read section count: %v", err)
 	}
 
-	pl := TypePayload{
-		Entries: make([]*TypeEntry, count),
-	}
+	pl := make([]*TypeEntry, count)
 
 	for i := uint32(0); i < count; i++ {
 		var e TypeEntry
@@ -251,7 +244,7 @@ func readTypePayload(r io.Reader) (interface{}, error) {
 			}
 		}
 
-		pl.Entries[i] = &e
+		pl[i] = &e
 	}
 
 	return &pl, nil
