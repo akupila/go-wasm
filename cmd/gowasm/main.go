@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -25,18 +24,27 @@ func main() {
 	}
 	defer f.Close()
 
-	parser := &wasm.Parser{}
-	m, err := parser.Parse(f)
+	mod, err := wasm.Parse(f)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	_ = m
+	_ = mod
 
-	j, err := json.MarshalIndent(m, "", "\t")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(j))
+	// pretty.Println(mod)
+
+	// j, err := json.MarshalIndent(mod, "", "\t")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// fmt.Println(string(j))
+
+	// for _, sec := range mod.Sections {
+	// 	fmt.Printf("%T\n", sec)
+	// 	switch s := sec.(type) {
+	// 	case *wasm.SectionCode:
+	// 		fmt.Println("bodies:", len(s.Bodies))
+	// 	}
+	// }
 }

@@ -1,80 +1,10 @@
-//go:generate stringer -type SectionID -trimprefix Section
-//go:generate stringer -type ExternalKind -trimprefix ExtKind
-//go:generate stringer -type LangType -trimprefix LangType
-//go:generate stringer -type OpCode -trimprefix op
-//go:generate stringer -type NameType -trimprefix NameType
+//xgo:generate stringer -type sectionID -trimprefix Section
+//xgo:generate stringer -type ExternalKind -trimprefix ExtKind
+//xgo:generate stringer -type LangType -trimprefix LangType
+//xgo:generate stringer -type OpCode -trimprefix op
+//xgo:generate stringer -type NameType -trimprefix NameType
 
 package wasm
-
-import (
-	"fmt"
-)
-
-// SectionID the id of a section in the wasm file.
-type SectionID uint8
-
-const (
-	// SectionCustom is a custom section.
-	SectionCustom SectionID = iota
-
-	// SectionType contains function signature declarations.
-	SectionType
-
-	// SectionImport contains import declarations.
-	SectionImport
-
-	// SectionFunction contains function declarations.
-	SectionFunction
-
-	// SectionTable contains an indirect function table and other tables.
-	SectionTable
-
-	// SectionMemory contains memory attributes.
-	SectionMemory
-
-	// SectionGlobal contains global declarations.
-	SectionGlobal
-
-	// SectionExport contains exports from the WASM module.
-	SectionExport
-
-	// SectionElement starts function declarations.
-	SectionStart
-
-	// SectionElement contains elements.
-	SectionElement
-
-	// SectionCode contains function bodies.
-	SectionCode
-
-	// SectionData contains data segments.
-	SectionData
-)
-
-func (s SectionID) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%q", s.String())), nil
-}
-
-// ExternalKind defines the type for an external import.
-type ExternalKind uint8
-
-const (
-	// ExtKindFunction indicates a Function import or definition.
-	ExtKindFunction ExternalKind = iota
-
-	// ExtKindTable indicates a Table import or definition.
-	ExtKindTable
-
-	// ExtKindMemory indicates a Memory import or definition.
-	ExtKindMemory
-
-	// ExtKindGlobal indicates a Global import or definition.
-	ExtKindGlobal
-)
-
-func (e ExternalKind) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%q", e.String())), nil
-}
 
 // LangType the type for an entry in the Type section.
 type LangType int
@@ -101,10 +31,6 @@ const (
 	// LangTypeInt32 is the language type for a 32 bit signed integer.
 	LangTypeInt32 LangType = 0x7F
 )
-
-func (l LangType) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%s (0x%02x)"`, l.String(), byte(l))), nil
-}
 
 // OpCode is an operation code.
 type OpCode uint8
@@ -303,19 +229,3 @@ const (
 	opF32ReinterpretI32               // 0xBE
 	opF64ReinterpretI64               // 0xBF
 )
-
-func (o OpCode) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%s (0x%02x)"`, o.String(), byte(o))), nil
-}
-
-type NameType uint8
-
-const (
-	NameTypeModule NameType = iota
-	NameTypeFunction
-	NameTypeLocal
-)
-
-func (n NameType) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`"%s (0x%02x)"`, n.String(), byte(n))), nil
-}
