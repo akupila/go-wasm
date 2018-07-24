@@ -2,6 +2,7 @@
 //go:generate stringer -type ExternalKind -trimprefix ExtKind
 //go:generate stringer -type LangType -trimprefix LangType
 //go:generate stringer -type OpCode -trimprefix op
+//go:generate stringer -type NameType -trimprefix NameType
 
 package wasm
 
@@ -305,4 +306,16 @@ const (
 
 func (o OpCode) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%s (0x%02x)"`, o.String(), byte(o))), nil
+}
+
+type NameType uint8
+
+const (
+	NameTypeModule NameType = iota
+	NameTypeFunction
+	NameTypeLocal
+)
+
+func (n NameType) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"%s (0x%02x)"`, n.String(), byte(n))), nil
 }

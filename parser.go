@@ -133,6 +133,20 @@ type DataSegment struct {
 	Data   []byte   `json:"data,omitempty"`
 }
 
+type ModuleName struct {
+	Name string
+}
+
+type FunctionName struct {
+	Index uint32 `json:"index"`
+	Name  string `json:"name,omitempty"`
+}
+
+type LocalFunc struct {
+	Index  uint32          `json:"index"`
+	Locals []*FunctionName `json:"locals,omitempty"`
+}
+
 // Parse parses the input to a WASM module.
 func (p *Parser) Parse(rd io.Reader) (*Module, error) {
 	r := bufio.NewReader(rd)
@@ -197,9 +211,14 @@ func (p *Parser) readSectionHeader(r io.Reader) error {
 
 	switch s.ID {
 	case SectionCustom:
-		s.Payload = make([]byte, payloadLen)
-		if err := read(r, s.Payload); err != nil {
-			return fmt.Errorf("read custom section payload: %v", err)
+		if s.Name == "name" {
+			s.Payload, err = readNameSection(r)
+		} else {
+			// Parse raw custom section
+			s.Payload = make([]byte, payloadLen)
+			if err := read(r, s.Payload); err != nil {
+				return fmt.Errorf("read custom section payload: %v", err)
+			}
 		}
 	case SectionType:
 		s.Payload, err = readTypePayload(r)
@@ -621,6 +640,84 @@ func readDataPayload(r io.Reader) (interface{}, error) {
 	}
 
 	return &pl, nil
+}
+
+func readNameSection(r io.Reader) (interface{}, error) {
+	pl := make([]interface{}, 0)
+
+	t, err := readByte(r)
+	if err != nil {
+		return nil, fmt.Errorf("read name type: %v", err)
+	}
+
+	var payloadLen uint32
+	if err := readVarUint32(r, &payloadLen); err != nil {
+		return nil, fmt.Errorf("read payload length: %v", err)
+	}
+
+	switch NameType(t) {
+	case NameTypeModule:
+		var l uint32
+		if err := readVarUint32(r, &l); err != nil {
+			return nil, fmt.Errorf("read module name length: %v", err)
+		}
+		name := make([]byte, l)
+		pl = append(pl, &ModuleName{
+			Name: string(name),
+		})
+	case NameTypeFunction:
+		m, err := readNameMap(r)
+		if err != nil {
+			return nil, fmt.Errorf("read function name map: %v", err)
+		}
+		pl = append(pl, m)
+	case NameTypeLocal:
+		var count uint32
+		if err := readVarUint32(r, &count); err != nil {
+			return nil, fmt.Errorf("read local func name count: %v", err)
+		}
+		for i := 0; i < int(count); i++ {
+			var local LocalFunc
+			if err := readVarUint32(r, &local.Index); err != nil {
+				return nil, fmt.Errorf("read local function index: %v", err)
+			}
+			m, err := readNameMap(r)
+			if err != nil {
+				return nil, fmt.Errorf("read local function name map: %v", err)
+			}
+			local.Locals = m
+			pl = append(pl, &local)
+		}
+	default:
+		return nil, fmt.Errorf("unknown name section 0x%02x", t)
+	}
+
+	return &pl, nil
+}
+
+func readNameMap(r io.Reader) ([]*FunctionName, error) {
+	var out []*FunctionName
+	var count uint32
+	if err := readVarUint32(r, &count); err != nil {
+		return nil, fmt.Errorf("read name map count: %v", err)
+	}
+	for i := 0; i < int(count); i++ {
+		var fn FunctionName
+		if err := readVarUint32(r, &fn.Index); err != nil {
+			return nil, fmt.Errorf("read function name index: %v", err)
+		}
+		var l uint32
+		if err := readVarUint32(r, &l); err != nil {
+			return nil, fmt.Errorf("read function name length: %v", err)
+		}
+		name := make([]byte, l)
+		if err := read(r, name); err != nil {
+			return nil, fmt.Errorf("read function name: %v", err)
+		}
+		fn.Name = string(name)
+		out = append(out, &fn)
+	}
+	return out, nil
 }
 
 func readResizableLimits(r io.Reader) (*ResizableLimits, error) {
