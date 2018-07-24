@@ -45,7 +45,7 @@ type TypePayload struct {
 
 // TypeEntry is an entry for a type definition.
 type TypeEntry struct {
-	Form        OpCode   `json:"form,omitempty"`
+	Form        LangType `json:"form,omitempty"`
 	ParamTypes  []OpCode `json:"param_types,omitempty"`
 	ReturnTypes []OpCode `json:"return_types,omitempty"`
 }
@@ -94,6 +94,13 @@ type ResizableLimits struct {
 	Maximum uint32 `json:"maximum,omitempty"`
 }
 
+// A GlobalVariable is declared in the Globals section.
+type GlobalVariable struct {
+	Type GlobalType `json:"type,omitempty"`
+	// Init is a wasm expression for setting the initial value of the variable.
+	Init []OpCode `json:"init,omitempty"`
+}
+
 // Parse parses the input to a WASM module.
 func (p *Parser) Parse(rd io.Reader) (*Module, error) {
 	r := bufio.NewReader(rd)
@@ -122,7 +129,7 @@ func (p *Parser) readFilePreamble(r io.Reader) error {
 		return fmt.Errorf("reader header: %v", err)
 	}
 	if header != magicnumber {
-		return fmt.Errorf("not a wasm file, expected header 0x%x, got 0x%x", magicnumber, header)
+		return fmt.Errorf("not a wasm file, expected header 0x%08x, got 0x%08x", magicnumber, header)
 	}
 	if err := read(r, &p.mod.Version); err != nil {
 		return fmt.Errorf("read version: %v", err)
@@ -172,6 +179,8 @@ func (p *Parser) readSectionHeader(r io.Reader) error {
 		s.Payload, err = readTablePayload(r)
 	case SectionMemory:
 		s.Payload, err = readMemoryPayload(r)
+	case SectionGlobal:
+		s.Payload, err = readGlobalPayload(r)
 	default:
 		// Skip section
 		offset := int64(payloadLen)
@@ -203,9 +212,11 @@ func readTypePayload(r io.Reader) (interface{}, error) {
 	for i := uint32(0); i < count; i++ {
 		var e TypeEntry
 
-		if err := readOpCode(r, &e.Form); err != nil {
+		form, err := readByte(r)
+		if err != nil {
 			return nil, fmt.Errorf("read form: %v", err)
 		}
+		e.Form = LangType(form)
 
 		var paramCount uint32
 		if err := readVarUint32(r, &paramCount); err != nil {
@@ -382,6 +393,31 @@ func readMemoryPayload(r io.Reader) (interface{}, error) {
 	return &pl, nil
 }
 
+func readGlobalPayload(r io.Reader) (interface{}, error) {
+	var count uint32
+	if err := readVarUint32(r, &count); err != nil {
+		return nil, fmt.Errorf("read section count: %v", err)
+	}
+
+	pl := make([]*GlobalVariable, count)
+
+	for i := uint32(0); i < count; i++ {
+		var t GlobalVariable
+		if err := readOpCode(r, &t.Type.ContentType); err != nil {
+			return nil, fmt.Errorf("read global content type: %v", err)
+		}
+		if err := read(r, &t.Type.Mutable); err != nil {
+			return nil, fmt.Errorf("read global mutability: %v", err)
+		}
+		if err := readExpr(r, &t.Init); err != nil {
+			return nil, fmt.Errorf("read global init expression: %v", err)
+		}
+		pl[i] = &t
+	}
+
+	return &pl, nil
+}
+
 func readResizableLimits(r io.Reader) (*ResizableLimits, error) {
 	var l ResizableLimits
 
@@ -399,4 +435,18 @@ func readResizableLimits(r io.Reader) (*ResizableLimits, error) {
 	}
 
 	return &l, nil
+}
+
+func readExpr(r io.Reader, v *[]OpCode) error {
+	for {
+		b, err := readByte(r)
+		if err != nil {
+			return err
+		}
+		if b == byte(opEnd) {
+			break
+		}
+		*v = append(*v, OpCode(b))
+	}
+	return nil
 }
