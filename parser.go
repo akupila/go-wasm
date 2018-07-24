@@ -80,7 +80,7 @@ type TableType struct {
 	Limits   *ResizableLimits `json:"limits,omitempty"`
 }
 
-// GlobalType is the Type field when Kind = ExtKindMemory.
+// MemoryType is the Type field when Kind = ExtKindMemory.
 type MemoryType struct {
 	Limits *ResizableLimits `json:"limits,omitempty"`
 }
