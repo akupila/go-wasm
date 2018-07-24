@@ -2,6 +2,7 @@ package wasm
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -113,6 +114,18 @@ type ElemSegment struct {
 	Elems []uint32 `json:"elems,omitempty"`
 }
 
+// FunctionBody is the body of a function.
+type FunctionBody struct {
+	Locals []*LocalEntry `json:"locals,omitempty"`
+	Code   []byte
+}
+
+// LocalEntry is a local in a function definition.
+type LocalEntry struct {
+	Count uint32   `json:"count,omitempty"`
+	Type  LangType `json:"type,omitempty"`
+}
+
 // Parse parses the input to a WASM module.
 func (p *Parser) Parse(rd io.Reader) (*Module, error) {
 	r := bufio.NewReader(rd)
@@ -203,6 +216,8 @@ func (p *Parser) readSectionHeader(r io.Reader) error {
 		s.Payload = index
 	case SectionElement:
 		s.Payload, err = readElementPayload(r)
+	case SectionCode:
+		s.Payload, err = readCodePayload(r)
 	default:
 		// Skip section
 		offset := int64(payloadLen)
@@ -505,6 +520,58 @@ func readElementPayload(r io.Reader) (interface{}, error) {
 				return nil, fmt.Errorf("read element function index %d: %v", i, err)
 			}
 		}
+
+		pl[i] = &e
+	}
+
+	return &pl, nil
+}
+
+func readCodePayload(r io.Reader) (interface{}, error) {
+	var count uint32
+	if err := readVarUint32(r, &count); err != nil {
+		return nil, fmt.Errorf("read section count: %v", err)
+	}
+
+	pl := make([]*FunctionBody, count)
+
+	for i := range pl {
+		var e FunctionBody
+
+		var bodySize uint32
+		if err := readVarUint32(r, &bodySize); err != nil {
+			return nil, fmt.Errorf("read body size: %v", err)
+		}
+
+		body := make([]byte, bodySize)
+		if err := read(r, body); err != nil {
+			return nil, fmt.Errorf("read function body: %v", err)
+		}
+
+		br := bytes.NewReader(body)
+		var localCount uint32
+		if err := readVarUint32(br, &localCount); err != nil {
+			return nil, fmt.Errorf("read local count: %v", err)
+		}
+		e.Locals = make([]*LocalEntry, localCount)
+		for i := range e.Locals {
+			var l LocalEntry
+			if err := readVarUint32(br, &l.Count); err != nil {
+				return nil, fmt.Errorf("read local entry count: %v", err)
+			}
+			b, err := readByte(br)
+			if err != nil {
+				return nil, fmt.Errorf("read local entry value type: %v", err)
+			}
+			l.Type = LangType(b)
+			e.Locals[i] = &l
+		}
+
+		code, err := ioutil.ReadAll(br)
+		if err != nil {
+			return nil, fmt.Errorf("read function bytecode: %v", err)
+		}
+		e.Code = code
 
 		pl[i] = &e
 	}
