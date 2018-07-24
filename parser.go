@@ -101,6 +101,13 @@ type GlobalVariable struct {
 	Init []OpCode `json:"init,omitempty"`
 }
 
+// An ExportEntry is an entry in the Exports section.
+type ExportEntry struct {
+	Field string       `json:"field,omitempty"`
+	Kind  ExternalKind `json:"kind,omitempty"`
+	Index uint32       `json:"index,omitempty"`
+}
+
 // Parse parses the input to a WASM module.
 func (p *Parser) Parse(rd io.Reader) (*Module, error) {
 	r := bufio.NewReader(rd)
@@ -167,7 +174,7 @@ func (p *Parser) readSectionHeader(r io.Reader) error {
 	case SectionCustom:
 		s.Payload = make([]byte, payloadLen)
 		if err := read(r, s.Payload); err != nil {
-			return fmt.Errorf("read section payload: %v", err)
+			return fmt.Errorf("read custom section payload: %v", err)
 		}
 	case SectionType:
 		s.Payload, err = readTypePayload(r)
@@ -181,11 +188,13 @@ func (p *Parser) readSectionHeader(r io.Reader) error {
 		s.Payload, err = readMemoryPayload(r)
 	case SectionGlobal:
 		s.Payload, err = readGlobalPayload(r)
+	case SectionExport:
+		s.Payload, err = readExportPayload(r)
 	default:
 		// Skip section
 		offset := int64(payloadLen)
 		if _, err := io.CopyN(ioutil.Discard, r, offset); err != nil {
-			return fmt.Errorf("discard section payload: %v", err)
+			return fmt.Errorf("discard %s section payload, %d bytes: %v", s.ID, offset, err)
 		}
 	}
 
@@ -413,6 +422,44 @@ func readGlobalPayload(r io.Reader) (interface{}, error) {
 			return nil, fmt.Errorf("read global init expression: %v", err)
 		}
 		pl[i] = &t
+	}
+
+	return &pl, nil
+}
+
+func readExportPayload(r io.Reader) (interface{}, error) {
+	var count uint32
+	if err := readVarUint32(r, &count); err != nil {
+		return nil, fmt.Errorf("read section count: %v", err)
+	}
+
+	pl := make([]*ExportEntry, count)
+
+	for i := uint32(0); i < count; i++ {
+		var e ExportEntry
+
+		var nameLen uint32
+		if err := readVarUint32(r, &nameLen); err != nil {
+			return nil, fmt.Errorf("read name length: %v", err)
+		}
+
+		name := make([]byte, nameLen)
+		if err := read(r, name); err != nil {
+			return nil, fmt.Errorf("read name")
+		}
+		e.Field = string(name)
+
+		kind, err := readByte(r)
+		if err != nil {
+			return nil, fmt.Errorf("read kind: %v", err)
+		}
+		e.Kind = ExternalKind(kind)
+
+		if err := readVarUint32(r, &e.Index); err != nil {
+			return nil, fmt.Errorf("read index: %v", err)
+		}
+
+		pl[i] = &e
 	}
 
 	return &pl, nil
