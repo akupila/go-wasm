@@ -195,26 +195,22 @@ func (p *parser) parseTypeSection() (interface{}, error) {
 		if err := readVarUint32(p.r, &pc); err != nil {
 			return fmt.Errorf("read func param count: %v", err)
 		}
-		e.Params = make([]valueType, pc)
+		e.Params = make([]int8, pc)
 		for i := range e.Params {
-			var t int8
-			if err := readVarInt7(p.r, &t); err != nil {
+			if err := readVarInt7(p.r, &e.Params[i]); err != nil {
 				return fmt.Errorf("read function param type: %v", err)
 			}
-			e.Params[i] = valueType(t)
 		}
 
 		var rc uint8
 		if err := readVarUint1(p.r, &rc); err != nil {
 			return fmt.Errorf("read number of returns from function: %v", err)
 		}
-		e.ReturnTypes = make([]valueType, rc)
+		e.ReturnTypes = make([]int8, rc)
 		for i := range e.ReturnTypes {
-			var t int8
-			if err := readVarInt7(p.r, &t); err != nil {
+			if err := readVarInt7(p.r, &e.ReturnTypes[i]); err != nil {
 				return fmt.Errorf("read function return type: %v", err)
 			}
-			e.ReturnTypes[i] = valueType(t)
 		}
 
 		s.Entries = append(s.Entries, e)
@@ -269,11 +265,9 @@ func (p *parser) parseImportSection() (interface{}, error) {
 			}
 		case ExtKindTable:
 			e.TableType = &TableType{}
-			var t int8
-			if err := readVarInt7(p.r, &t); err != nil {
+			if err := readVarInt7(p.r, &e.TableType.ElemType); err != nil {
 				return fmt.Errorf("read table element type: %v", err)
 			}
-			e.TableType.ElemType = elemType(t)
 
 			if err := p.parseResizableLimits(&e.TableType.Limits); err != nil {
 				return fmt.Errorf("read table resizable limits: %v", err)
@@ -285,11 +279,9 @@ func (p *parser) parseImportSection() (interface{}, error) {
 			}
 		case ExtKindGlobal:
 			e.GlobalType = &GlobalType{}
-			var t int8
-			if err := readVarInt7(p.r, &t); err != nil {
+			if err := readVarInt7(p.r, &e.GlobalType.ContentType); err != nil {
 				return fmt.Errorf("read global content type: %v", err)
 			}
-			e.GlobalType.ContentType = valueType(t)
 
 			var m uint8
 			if err := readVarUint1(p.r, &m); err != nil {
@@ -373,11 +365,9 @@ func (p *parser) parseGlobalSection() (interface{}, error) {
 	err := p.parseMultiSection(func() error {
 		var e GlobalVariable
 
-		var t int8
-		if err := readVarInt7(p.r, &t); err != nil {
+		if err := readVarInt7(p.r, &e.Type.ContentType); err != nil {
 			return fmt.Errorf("read global content type: %v", err)
 		}
-		e.Type.ContentType = valueType(t)
 
 		if err := read(p.r, &e.Type.Mutable); err != nil {
 			return fmt.Errorf("read global mutability: %v", err)
@@ -505,11 +495,9 @@ func (p *parser) parseCodeSection() (interface{}, error) {
 				return fmt.Errorf("read local entry count: %v", err)
 			}
 
-			var t uint8
-			if err := read(p.r, &t); err != nil {
+			if err := read(p.r, &l.Type); err != nil {
 				return fmt.Errorf("read local entry value type: %v", err)
 			}
-			l.Type = valueType(t)
 
 			e.Locals[i] = l
 		}
@@ -563,6 +551,13 @@ func (p *parser) parseDataSection() (interface{}, error) {
 
 	return &s, nil
 }
+
+// name types are used to identify the type in a Name section.
+const (
+	nameTypeModule   uint8 = iota // 0x00
+	nameTypeFunction              // 0x01
+	nameTypeLocal                 // 0x02
+)
 
 func (p *parser) parseNameSection(name string, n uint32) (interface{}, error) {
 	s := SectionName{

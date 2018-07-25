@@ -32,7 +32,7 @@ type FuncType struct {
 	Form int8
 
 	// Params contains the parameter types of the function.
-	Params []valueType
+	Params []int8
 
 	// ReturnCount returns the number of results from the function.
 	// The value will be 0 or 1.
@@ -41,7 +41,7 @@ type FuncType struct {
 	ReturnCount uint8
 
 	// ReturnType is the result type if ReturnCount > 0.
-	ReturnTypes []valueType
+	ReturnTypes []int8
 }
 
 // SectionImport declares all imports defined by the module.
@@ -89,7 +89,7 @@ type MemoryType struct {
 // TableType is the type for a table import.
 type TableType struct {
 	// ElemType specifies the type of the elements.
-	ElemType elemType
+	ElemType int8
 
 	// Limits specifies the resizable limits of the table.
 	Limits ResizableLimits
@@ -98,7 +98,7 @@ type TableType struct {
 // GlobalType is the type for a global import.
 type GlobalType struct {
 	// ContentType is the type of the value.
-	ContentType valueType
+	ContentType int8
 
 	// Mutable is true if the global value can be modified.
 	Mutable bool
@@ -231,7 +231,7 @@ type LocalEntry struct {
 	Count uint32
 
 	// Type is the type of the variable.
-	Type valueType
+	Type int8
 }
 
 // SectionData declares the initialized data that is loaded into the linear
@@ -322,19 +322,3 @@ const (
 	// ExtKindGlobal is an imported global.
 	ExtKindGlobal
 )
-
-// name types are used to identify the type in a Name section.
-const (
-	nameTypeModule   uint8 = iota // 0x00
-	nameTypeFunction              // 0x01
-	nameTypeLocal                 // 0x02
-)
-
-// varint7
-type valueType int8
-
-// varint7
-type langType int8
-
-// varint7
-type elemType int8
