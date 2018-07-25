@@ -47,7 +47,7 @@ func TestParser(t *testing.T) {
 
 var filename = "testdata/helloworld.wasm"
 
-func ExampleParse() {
+func Example_parseFile() {
 	f, err := os.Open(filename)
 	if err != nil {
 		log.Fatal(err)
