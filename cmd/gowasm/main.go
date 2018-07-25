@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"text/tabwriter"
 
 	wasm "github.com/akupila/go-wasm"
 )
@@ -30,21 +31,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	_ = mod
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
+	fmt.Fprintf(w, "Index\tName\tSize (bytes)\n")
+	for i, s := range mod.Sections {
+		fmt.Fprintf(w, "%d\t%s\t%d\n", i, s.Name(), s.Size())
+	}
+	w.Flush()
 
-	// pretty.Println(mod)
-
-	// j, err := json.MarshalIndent(mod, "", "\t")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// fmt.Println(string(j))
-
-	// for _, sec := range mod.Sections {
-	// 	fmt.Printf("%T\n", sec)
-	// 	switch s := sec.(type) {
-	// 	case *wasm.SectionCode:
-	// 		fmt.Println("bodies:", len(s.Bodies))
-	// 	}
+	// Much more information is available by type asserting the section:
+	// switch section := s.(type) {
+	//     case *wasm.SectionCode:
+	//         // can now read function bytecode from section.
 	// }
 }

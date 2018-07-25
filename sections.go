@@ -1,28 +1,47 @@
 package wasm
 
-// A Module represents a parsed WASM module.
-type Module struct {
-	// Sections contains the sections in the parsed file, in the order they
-	// appear in the file. A valid  but empty file will have zero sections.
-	//
-	// The items in the slice will be a mix of the SectionXXX types.
-	Sections []interface{}
+type section struct {
+	id   sectionID
+	name string
+	size uint32
+}
+
+func (s *section) ID() uint8    { return uint8(s.id) }
+func (s *section) Name() string { return s.name }
+func (s *section) Size() uint32 { return s.size }
+
+// A Section contains all the information for a single section in the WASM
+// file. A file is built up of zero or more sections.
+type Section interface {
+	// ID returns the WASM identifier of the section, for example 0x0A for the
+	// code section.
+	ID() uint8
+
+	// Name returns the name of the section.
+	Name() string
+
+	// Size returns the size of the section in bytes.
+	Size() uint32
 }
 
 // SectionCustom is a custom or name section added by the compiler that
 // generated the WASM file.
 type SectionCustom struct {
-	// Name is the name of the section.
-	Name string
+	// SectionName is the name of the section as defined in the wasm file.
+	SectionName string
 
 	// Payload is the raw payload for the section.
 	Payload []byte
+
+	*section
 }
 
 // SectionType declares all function type definitions used in the module.
 type SectionType struct {
 	// Entries are the entries in a Type section. Each entry declares one type.
 	Entries []FuncType
+
+	*section
 }
 
 // A FuncType is the description of a function signature.
@@ -46,7 +65,10 @@ type FuncType struct {
 
 // SectionImport declares all imports defined by the module.
 type SectionImport struct {
+	// Entries contains import entries to the module.
 	Entries []ImportEntry
+
+	*section
 }
 
 // ImportEntry describes an individual import to the module.
@@ -118,6 +140,8 @@ type ResizableLimits struct {
 type SectionFunction struct {
 	// Types contains a sequence of indices into the type section.
 	Types []uint32
+
+	*section
 }
 
 // SectionTable declares a table section. A table is similar to linear memory,
@@ -129,6 +153,8 @@ type SectionFunction struct {
 // https://github.com/WebAssembly/design/blob/master/Semantics.md#table
 type SectionTable struct {
 	Entries []MemoryType
+
+	*section
 }
 
 // SectionMemory declares a memory section. The section provides an internal
@@ -137,6 +163,8 @@ type SectionTable struct {
 // https://github.com/WebAssembly/design/blob/master/Modules.md#linear-memory-section
 type SectionMemory struct {
 	Entries []MemoryType
+
+	*section
 }
 
 // SectionGlobal provides an internal definition of global variables.
@@ -144,6 +172,8 @@ type SectionMemory struct {
 // https://github.com/WebAssembly/design/blob/master/Modules.md#global-section
 type SectionGlobal struct {
 	Globals []GlobalVariable
+
+	*section
 }
 
 // A GlobalVariable is a global variable defined by the module.
@@ -161,6 +191,8 @@ type GlobalVariable struct {
 // https://github.com/WebAssembly/design/blob/master/Modules.md#exports
 type SectionExport struct {
 	Entries []ExportEntry
+
+	*section
 }
 
 // ExportEntry specifies an individual export from the module.
@@ -185,6 +217,8 @@ type SectionStart struct {
 	//
 	// https://github.com/WebAssembly/design/blob/master/Modules.md#function-index-space
 	Index uint32
+
+	*section
 }
 
 // SectionElement defines element segments that initialize elements of imported
@@ -194,6 +228,8 @@ type SectionStart struct {
 type SectionElement struct {
 	// Entries contains the elements.
 	Entries []ElemSegment
+
+	*section
 }
 
 // An ElemSegment is an element segment. It initializes a table with initial
@@ -214,6 +250,8 @@ type ElemSegment struct {
 type SectionCode struct {
 	// Bodies contains all function bodies.
 	Bodies []FunctionBody
+
+	*section
 }
 
 // A FunctionBody is the body of a function.
@@ -239,6 +277,8 @@ type LocalEntry struct {
 type SectionData struct {
 	// Entries contains the data segment entries.
 	Entries []DataSegment
+
+	*section
 }
 
 // A DataSegment is a segment of data in the Data section that is loaded into
@@ -260,8 +300,8 @@ type DataSegment struct {
 // SectionName is a custom section that provides debugging information, by
 // matching indices to human readable names.
 type SectionName struct {
-	// Name is the name of the name section. The value is always "name".
-	Name string
+	// SectionName is the name of the name section. The value is always "name".
+	SectionName string
 
 	// Module is the name of the WASM module.
 	Module string
@@ -271,6 +311,8 @@ type SectionName struct {
 
 	// Locals contains local function name mappings.
 	Locals *Locals
+
+	*section
 }
 
 // A NameMap is a map that maps an index to a name.

@@ -1,3 +1,5 @@
+//go:generate stringer -trimprefix sec -type sectionID
+
 package wasm
 
 import (
@@ -13,7 +15,6 @@ const magicnumber = 0x6d736100 // \0asm
 // opEnd is the op code for a section end
 const opEnd = 0x0b
 
-// sectionID the id of a section in the wasm file.
 type sectionID uint8
 
 const (
@@ -78,57 +79,63 @@ func (p *parser) parsePreamble() error {
 	return nil
 }
 
-func (p *parser) parseSection(ss *[]interface{}) error {
-	var sID uint8
-	if err := readVarUint7(p.r, &sID); err != nil {
+func (p *parser) parseSection(ss *[]Section) error {
+	var i uint8
+	if err := readVarUint7(p.r, &i); err != nil {
 		if err == io.EOF {
 			return errDone
 		}
 		return fmt.Errorf("read section id: %v", err)
 	}
+	sid := sectionID(i)
 
-	var s interface{}
+	var s Section
 	var err error
 
-	switch sectionID(sID) {
+	base := &section{
+		id:   sid,
+		name: sid.String(),
+	}
+
+	if err := readVarUint32(p.r, &base.size); err != nil {
+		return fmt.Errorf("read type section payload length: %v", err)
+	}
+
+	switch sid {
 	case secCustom:
-		s, err = p.parseCustomSection()
+		s, err = p.parseCustomSection(base)
 	case secType:
-		s, err = p.parseTypeSection()
+		s, err = p.parseTypeSection(base)
 	case secImport:
-		s, err = p.parseImportSection()
+		s, err = p.parseImportSection(base)
 	case secFunction:
-		s, err = p.parseFunctionSection()
+		s, err = p.parseFunctionSection(base)
 	case secTable:
-		s, err = p.parseTableSection()
+		s, err = p.parseTableSection(base)
 	case secMemory:
-		s, err = p.parseMemorySection()
+		s, err = p.parseMemorySection(base)
 	case secGlobal:
-		s, err = p.parseGlobalSection()
+		s, err = p.parseGlobalSection(base)
 	case secExport:
-		s, err = p.parseExportSection()
+		s, err = p.parseExportSection(base)
 	case secStart:
-		s, err = p.parseStartSection()
+		s, err = p.parseStartSection(base)
 	case secElement:
-		s, err = p.parseElementSection()
+		s, err = p.parseElementSection(base)
 	case secCode:
-		s, err = p.parseCodeSection()
+		s, err = p.parseCodeSection(base)
 	case secData:
-		s, err = p.parseDataSection()
+		s, err = p.parseDataSection(base)
 	default:
-		var offset uint32
-		if err := readVarUint32(p.r, &offset); err != nil {
-			return fmt.Errorf("read type section payload length: %v", err)
+		if _, err := io.CopyN(ioutil.Discard, p.r, int64(base.size)); err != nil {
+			return fmt.Errorf("discard section payload, %d bytes: %v", base.size, err)
 		}
-		if _, err := io.CopyN(ioutil.Discard, p.r, int64(offset)); err != nil {
-			return fmt.Errorf("discard section payload, %d bytes: %v", offset, err)
-		}
-		if sID > byte(secData) {
+		if sid > secData {
 			// This happens if the previous section was not read to the end,
 			// indicating a bug in that section parser.
-			return fmt.Errorf("data corrupted; section id 0x%02x not valid", sID)
+			return fmt.Errorf("data corrupted; section id 0x%02x not valid", sid)
 		}
-		fmt.Printf("[0x%06x] skipping unknown section 0x%02x\n", p.r.Index(), sID)
+		// Skip unknown section
 		return nil
 	}
 	if err != nil {
@@ -142,12 +149,7 @@ func (p *parser) parseSection(ss *[]interface{}) error {
 	return nil
 }
 
-func (p *parser) parseCustomSection() (interface{}, error) {
-	var pl uint32
-	if err := readVarUint32(p.r, &pl); err != nil {
-		return nil, fmt.Errorf("read section payload length: %v", err)
-	}
-
+func (p *parser) parseCustomSection(base *section) (Section, error) {
 	var nl uint32
 	if err := readVarUint32(p.r, &nl); err != nil {
 		return nil, fmt.Errorf("read section name length: %v", err)
@@ -159,21 +161,22 @@ func (p *parser) parseCustomSection() (interface{}, error) {
 	}
 	name := string(b)
 
-	pl -= uint32(nl)                // sizeof name
-	pl -= uint32(varUint32Size(nl)) // sizeof name_len
+	base.size -= uint32(nl)                // sizeof name
+	base.size -= uint32(varUint32Size(nl)) // sizeof name_len
 
 	if name == "name" {
 		// A name section is a special custom section meant for debugging
 		// purposes. It's defined in the spec so we'll parse it.
-		return p.parseNameSection(name, pl)
+		return p.parseNameSection(base, name, base.size)
 	}
 
 	s := SectionCustom{
-		Name: name,
+		section:     base,
+		SectionName: name,
 	}
 
 	// set raw bytes
-	s.Payload = make([]byte, pl)
+	s.Payload = make([]byte, base.size)
 	if err := read(p.r, s.Payload); err != nil {
 		return nil, fmt.Errorf("read custom section payload: %v", err)
 	}
@@ -181,8 +184,8 @@ func (p *parser) parseCustomSection() (interface{}, error) {
 	return &s, nil
 }
 
-func (p *parser) parseTypeSection() (interface{}, error) {
-	var s SectionType
+func (p *parser) parseTypeSection(base *section) (*SectionType, error) {
+	s := SectionType{section: base}
 
 	err := p.parseMultiSection(func() error {
 		var e FuncType
@@ -223,8 +226,8 @@ func (p *parser) parseTypeSection() (interface{}, error) {
 	return &s, nil
 }
 
-func (p *parser) parseImportSection() (interface{}, error) {
-	var s SectionImport
+func (p *parser) parseImportSection(base *section) (*SectionImport, error) {
+	s := SectionImport{section: base}
 
 	err := p.parseMultiSection(func() error {
 		var e ImportEntry
@@ -300,8 +303,8 @@ func (p *parser) parseImportSection() (interface{}, error) {
 	return &s, nil
 }
 
-func (p *parser) parseFunctionSection() (interface{}, error) {
-	var s SectionFunction
+func (p *parser) parseFunctionSection(base *section) (*SectionFunction, error) {
+	s := SectionFunction{section: base}
 
 	err := p.parseMultiSection(func() error {
 		var t uint32
@@ -319,8 +322,8 @@ func (p *parser) parseFunctionSection() (interface{}, error) {
 	return &s, nil
 }
 
-func (p *parser) parseTableSection() (interface{}, error) {
-	var s SectionTable
+func (p *parser) parseTableSection(base *section) (*SectionTable, error) {
+	s := SectionTable{section: base}
 
 	err := p.parseMultiSection(func() error {
 		var e MemoryType
@@ -339,8 +342,8 @@ func (p *parser) parseTableSection() (interface{}, error) {
 	return &s, nil
 }
 
-func (p *parser) parseMemorySection() (interface{}, error) {
-	var s SectionMemory
+func (p *parser) parseMemorySection(base *section) (*SectionMemory, error) {
+	s := SectionMemory{section: base}
 
 	err := p.parseMultiSection(func() error {
 		var e MemoryType
@@ -359,8 +362,8 @@ func (p *parser) parseMemorySection() (interface{}, error) {
 	return &s, nil
 }
 
-func (p *parser) parseGlobalSection() (interface{}, error) {
-	var s SectionGlobal
+func (p *parser) parseGlobalSection(base *section) (*SectionGlobal, error) {
+	s := SectionGlobal{section: base}
 
 	err := p.parseMultiSection(func() error {
 		var e GlobalVariable
@@ -387,8 +390,8 @@ func (p *parser) parseGlobalSection() (interface{}, error) {
 	return &s, nil
 }
 
-func (p *parser) parseExportSection() (interface{}, error) {
-	var s SectionExport
+func (p *parser) parseExportSection(base *section) (*SectionExport, error) {
+	s := SectionExport{section: base}
 
 	err := p.parseMultiSection(func() error {
 		var e ExportEntry
@@ -424,8 +427,8 @@ func (p *parser) parseExportSection() (interface{}, error) {
 	return &s, nil
 }
 
-func (p *parser) parseStartSection() (interface{}, error) {
-	var s SectionStart
+func (p *parser) parseStartSection(base *section) (*SectionStart, error) {
+	s := SectionStart{section: base}
 
 	if err := readVarUint32(p.r, &s.Index); err != nil {
 		return nil, fmt.Errorf("read start index: %v", err)
@@ -434,8 +437,8 @@ func (p *parser) parseStartSection() (interface{}, error) {
 	return &s, nil
 }
 
-func (p *parser) parseElementSection() (interface{}, error) {
-	var s SectionElement
+func (p *parser) parseElementSection(base *section) (*SectionElement, error) {
+	s := SectionElement{section: base}
 
 	err := p.parseMultiSection(func() error {
 		var e ElemSegment
@@ -469,8 +472,8 @@ func (p *parser) parseElementSection() (interface{}, error) {
 	return &s, nil
 }
 
-func (p *parser) parseCodeSection() (interface{}, error) {
-	var s SectionCode
+func (p *parser) parseCodeSection(base *section) (*SectionCode, error) {
+	s := SectionCode{section: base}
 
 	err := p.parseMultiSection(func() error {
 		var e FunctionBody
@@ -518,8 +521,8 @@ func (p *parser) parseCodeSection() (interface{}, error) {
 	return &s, nil
 }
 
-func (p *parser) parseDataSection() (interface{}, error) {
-	var s SectionData
+func (p *parser) parseDataSection(base *section) (*SectionData, error) {
+	s := SectionData{section: base}
 
 	err := p.parseMultiSection(func() error {
 		var e DataSegment
@@ -559,9 +562,10 @@ const (
 	nameTypeLocal                 // 0x02
 )
 
-func (p *parser) parseNameSection(name string, n uint32) (interface{}, error) {
+func (p *parser) parseNameSection(base *section, name string, n uint32) (*SectionName, error) {
 	s := SectionName{
-		Name: name,
+		section:     base,
+		SectionName: name,
 	}
 
 	var t uint8
@@ -643,12 +647,6 @@ func (p *parser) parseResizableLimits(l *ResizableLimits) error {
 // If f returns an error, further processing is not done and the error is
 // returned to the caller.
 func (p *parser) parseMultiSection(f func() error) error {
-	var pl uint32
-	if err := readVarUint32(p.r, &pl); err != nil {
-		return fmt.Errorf("read type section payload length: %v", err)
-	}
-
-	s := p.r.Index()
 
 	var n uint32
 	if err := readVarUint32(p.r, &n); err != nil {
@@ -659,11 +657,6 @@ func (p *parser) parseMultiSection(f func() error) error {
 		if err := f(); err != nil {
 			return fmt.Errorf("entry %d: %v", i, err)
 		}
-	}
-
-	d := p.r.Index() - s
-	if d != int(pl) {
-		return fmt.Errorf("section was not fully read, expected %d to be read but %d were read", pl, d)
 	}
 
 	return nil
