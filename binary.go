@@ -99,12 +99,3 @@ func varUint32Size(v uint32) int {
 	}
 	return s
 }
-
-func readOpCode(r io.Reader, v *OpCode) error {
-	var t int8
-	if err := readVarInt7(r, &t); err != nil {
-		return err
-	}
-	*v = OpCode(t)
-	return nil
-}

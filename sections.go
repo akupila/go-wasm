@@ -1,6 +1,3 @@
-//go:generate stringer -type LanguageType -trimprefix LanguageType_
-//go:generate stringer -type ValueType -trimprefix ValueType_
-
 package wasm
 
 // A Module represents a parsed WASM module.

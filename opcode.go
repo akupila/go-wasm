@@ -1,38 +1,6 @@
-//xgo:generate stringer -type sectionID -trimprefix Section
-//xgo:generate stringer -type ExternalKind -trimprefix ExtKind
-//xgo:generate stringer -type LangType -trimprefix LangType
-//xgo:generate stringer -type OpCode -trimprefix op
-//xgo:generate stringer -type NameType -trimprefix NameType
-
 package wasm
 
-// LangType the type for an entry in the Type section.
-type LangType int
-
-const (
-	// LangTypeBlock is the language type for a pseudo type representing an empty block_type.
-	LangTypeBlock LangType = 0x40
-
-	// LangTypeFunc is the language type for a function.
-	LangTypeFunc LangType = 0x60
-
-	// LangTypeAnyFunc is the language type for a function with any signatrue.
-	LangTypeAnyFunc LangType = 0x70
-
-	// LangTypeFloat64 is the language type for a 64 bit float.
-	LangTypeFloat64 LangType = 0x7C
-
-	// LangTypeFloat32 is the language type for a 32 bit float.
-	LangTypeFloat32 LangType = 0x7D
-
-	// LangTypeInt64 is the language type for a 64 bit signed integer.
-	LangTypeInt64 LangType = 0x7E
-
-	// LangTypeInt32 is the language type for a 32 bit signed integer.
-	LangTypeInt32 LangType = 0x7F
-)
-
-// OpCode is an operation code.
+// OpCode is a WASM op code.
 type OpCode uint8
 
 const (
