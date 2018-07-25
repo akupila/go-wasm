@@ -1,0 +1,158 @@
+{
+	"Entries": [
+		{
+			"Module": "go",
+			"Field": "debug",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "runtime.wasmExit",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "runtime.wasmWrite",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "runtime.nanotime",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "runtime.walltime",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "runtime.scheduleCallback",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "runtime.clearScheduledCallback",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "runtime.getRandomData",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "syscall/js.stringVal",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "syscall/js.valueGet",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "syscall/js.valueCall",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "syscall/js.valueNew",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "syscall/js.valuePrepareString",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		},
+		{
+			"Module": "go",
+			"Field": "syscall/js.valueLoadString",
+			"Kind": 0,
+			"FunctionType": {
+				"Index": 1
+			},
+			"TableType": null,
+			"MemoryType": null,
+			"GlobalType": null
+		}
+	]
+}

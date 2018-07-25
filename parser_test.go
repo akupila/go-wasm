@@ -1,8 +1,12 @@
 package wasm
 
 import (
+	"bytes"
+	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -10,13 +14,15 @@ import (
 	"testing"
 )
 
+var update = flag.Bool("update", false, "Update golden files")
+
 func TestParser(t *testing.T) {
 	tt := []struct {
-		file     string
-		sections []string
+		file        string
+		numSections int
 	}{
-		{"empty.wasm", nil},
-		{"helloworld.wasm", []string{"Custom", "Type", "Import", "Function", "Table", "Memory", "Global", "Export", "Element", "Code", "Data", "Name"}},
+		{"empty.wasm", 0},
+		{"helloworld.wasm", 12},
 	}
 
 	for _, tc := range tt {
@@ -29,18 +35,21 @@ func TestParser(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if len(actual.Sections) != len(tc.sections) {
-				t.Fatalf("Number of sections does not match; expected %d, actual %d", len(tc.sections), len(actual.Sections))
+			if len(actual.Sections) != tc.numSections {
+				t.Fatalf("Number of sections does not match; expected %d, actual %d", tc.numSections, len(actual.Sections))
 			}
 
-			for i, sec := range actual.Sections {
-				n := strings.TrimPrefix(fmt.Sprintf("%T", sec), "*wasm.Section")
-				if tc.sections[i] != n {
-					t.Errorf("Section %d/%d type doesn not match; expected %q, actual %q", i+1, len(tc.sections), tc.sections[i], n)
+			for i, s := range actual.Sections {
+				name := strings.TrimSuffix(tc.file, filepath.Ext(tc.file))
+				name = fmt.Sprintf("golden/%s-%02d.json", name, i)
+
+				j, err := json.MarshalIndent(s, "", "\t")
+				if err != nil {
+					t.Fatal(err)
 				}
-			}
 
-			// TODO(akupila): add more assertions
+				assertGolden(t, j, name)
+			}
 		})
 	}
 }
@@ -88,5 +97,33 @@ func open(t testing.TB, name string) (io.Reader, func()) {
 		if err := f.Close(); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func assertGolden(t *testing.T, b []byte, name string) {
+	t.Helper()
+
+	tf := filepath.Join("testdata", name)
+	if *update {
+		if err := ioutil.WriteFile(tf, b, 0644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+
+	g, err := ioutil.ReadFile(tf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(g, b) {
+		addr := 0
+		for i, v := range g {
+			if b[i] != v {
+				addr = i
+				break
+			}
+		}
+		t.Errorf("Golden file %s does not match; difference at address 0x%06x", tf, addr)
 	}
 }

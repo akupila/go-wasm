@@ -1,0 +1,106 @@
+{
+	"Entries": [
+		{
+			"Form": 96,
+			"Params": [],
+			"ReturnCount": 0,
+			"ReturnTypes": [
+				127
+			]
+		},
+		{
+			"Form": 96,
+			"Params": [
+				127
+			],
+			"ReturnCount": 0,
+			"ReturnTypes": []
+		},
+		{
+			"Form": 96,
+			"Params": [
+				126,
+				126,
+				126,
+				126
+			],
+			"ReturnCount": 0,
+			"ReturnTypes": [
+				126
+			]
+		},
+		{
+			"Form": 96,
+			"Params": [
+				127,
+				127,
+				127
+			],
+			"ReturnCount": 0,
+			"ReturnTypes": [
+				127
+			]
+		},
+		{
+			"Form": 96,
+			"Params": [
+				126,
+				126,
+				126
+			],
+			"ReturnCount": 0,
+			"ReturnTypes": [
+				126
+			]
+		},
+		{
+			"Form": 96,
+			"Params": [
+				126,
+				126
+			],
+			"ReturnCount": 0,
+			"ReturnTypes": []
+		},
+		{
+			"Form": 96,
+			"Params": [
+				127,
+				127
+			],
+			"ReturnCount": 0,
+			"ReturnTypes": []
+		},
+		{
+			"Form": 96,
+			"Params": [
+				127,
+				127,
+				127
+			],
+			"ReturnCount": 0,
+			"ReturnTypes": []
+		},
+		{
+			"Form": 96,
+			"Params": [
+				126,
+				126
+			],
+			"ReturnCount": 0,
+			"ReturnTypes": [
+				126
+			]
+		},
+		{
+			"Form": 96,
+			"Params": [
+				124
+			],
+			"ReturnCount": 0,
+			"ReturnTypes": [
+				126
+			]
+		}
+	]
+}

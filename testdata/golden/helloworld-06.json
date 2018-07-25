@@ -1,0 +1,74 @@
+{
+	"Globals": [
+		{
+			"Type": {
+				"ContentType": 127,
+				"Mutable": true
+			},
+			"Init": "QQAL"
+		},
+		{
+			"Type": {
+				"ContentType": 127,
+				"Mutable": true
+			},
+			"Init": "QQAL"
+		},
+		{
+			"Type": {
+				"ContentType": 127,
+				"Mutable": true
+			},
+			"Init": "QQAL"
+		},
+		{
+			"Type": {
+				"ContentType": 126,
+				"Mutable": true
+			},
+			"Init": "QgAL"
+		},
+		{
+			"Type": {
+				"ContentType": 126,
+				"Mutable": true
+			},
+			"Init": "QgAL"
+		},
+		{
+			"Type": {
+				"ContentType": 126,
+				"Mutable": true
+			},
+			"Init": "QgAL"
+		},
+		{
+			"Type": {
+				"ContentType": 126,
+				"Mutable": true
+			},
+			"Init": "QgAL"
+		},
+		{
+			"Type": {
+				"ContentType": 126,
+				"Mutable": true
+			},
+			"Init": "QgAL"
+		},
+		{
+			"Type": {
+				"ContentType": 126,
+				"Mutable": true
+			},
+			"Init": "QgAL"
+		},
+		{
+			"Type": {
+				"ContentType": 127,
+				"Mutable": true
+			},
+			"Init": "QQAL"
+		}
+	]
+}

@@ -1,0 +1,10 @@
+{
+	"Entries": [
+		{
+			"Limits": {
+				"Initial": 16384,
+				"Maximum": 0
+			}
+		}
+	]
+}
