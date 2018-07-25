@@ -46,18 +46,13 @@ func Parse(r io.Reader) (*Module, error) {
 	// Parse file sections
 	var m Module
 	for {
-		s, err := p.parseSection()
+		err := p.parseSection(&m.Sections)
 		if err != nil {
 			if strings.HasSuffix(err.Error(), io.EOF.Error()) {
 				break
 			}
 			return nil, fmt.Errorf("[0x%06x] parse section: %v", p.r.Index(), err)
 		}
-		if s == nil {
-			// Unknown section
-			continue
-		}
-		m.Sections = append(m.Sections, &s)
 	}
 	return &m, nil
 }
@@ -79,53 +74,64 @@ func (p *parser) parsePreamble() error {
 	return nil
 }
 
-func (p *parser) parseSection() (interface{}, error) {
+func (p *parser) parseSection(ss *[]interface{}) error {
 	sID, err := readByte(p.r)
 	if err != nil {
-		return nil, fmt.Errorf("read section id: %v", err)
+		return fmt.Errorf("read section id: %v", err)
 	}
+
+	var s interface{}
 
 	switch sectionID(sID) {
 	case secCustom:
-		return p.parseCustomSection()
+		s, err = p.parseCustomSection()
 	case secType:
-		return p.parseTypeSection()
+		s, err = p.parseTypeSection()
 	case secImport:
-		return p.parseImportSection()
+		s, err = p.parseImportSection()
 	case secFunction:
-		return p.parseFunctionSection()
+		s, err = p.parseFunctionSection()
 	case secTable:
-		return p.parseTableSection()
+		s, err = p.parseTableSection()
 	case secMemory:
-		return p.parseMemorySection()
+		s, err = p.parseMemorySection()
 	case secGlobal:
-		return p.parseGlobalSection()
+		s, err = p.parseGlobalSection()
 	case secExport:
-		return p.parseExportSection()
+		s, err = p.parseExportSection()
 	case secStart:
-		return p.parseStartSection()
+		s, err = p.parseStartSection()
 	case secElement:
-		return p.parseElementSection()
+		s, err = p.parseElementSection()
 	case secCode:
-		return p.parseCodeSection()
+		s, err = p.parseCodeSection()
 	case secData:
-		return p.parseDataSection()
+		s, err = p.parseDataSection()
 	default:
 		var offset uint32
 		if err := readVarUint32(p.r, &offset); err != nil {
-			return nil, fmt.Errorf("read type section payload length: %v", err)
+			return fmt.Errorf("read type section payload length: %v", err)
 		}
 		if _, err := io.CopyN(ioutil.Discard, p.r, int64(offset)); err != nil {
-			return nil, fmt.Errorf("discard section payload, %d bytes: %v", offset, err)
+			return fmt.Errorf("discard section payload, %d bytes: %v", offset, err)
 		}
 		if sID > byte(secData) {
 			// This happens if the previous section was not read to the end,
 			// indicating a bug in that section parser.
-			return nil, fmt.Errorf("data corrupted; section id 0x%02x not valid", sID)
+			return fmt.Errorf("data corrupted; section id 0x%02x not valid", sID)
 		}
 		fmt.Printf("[0x%06x] skipping unknown section 0x%02x\n", p.r.Index(), sID)
-		return nil, nil
+		return nil
 	}
+	if err != nil {
+		return err
+	}
+
+	if s != nil {
+		*ss = append(*ss, s)
+	}
+
+	return nil
 }
 
 func (p *parser) parseCustomSection() (interface{}, error) {
