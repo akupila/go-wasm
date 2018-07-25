@@ -32,21 +32,16 @@ func readUntil(r io.Reader, delim byte, v *[]byte) error {
 }
 
 func readVarUint1(r io.Reader, v *uint8) error {
-	return binary.Read(r, binary.LittleEndian, v)
+	return read(r, v)
 }
 
 func readVarUint7(r io.Reader, v *uint8) error {
-	if err := binary.Read(r, binary.LittleEndian, v); err != nil {
-		return err
-	}
-	*v &= 0xFE
-	return nil
+	return read(r, v)
 }
 
 func readVarUint32(r io.Reader, v *uint32) error {
 	var shift uint32
 	for {
-		// TODO: read 4?
 		b, err := readByte(r)
 		if err != nil {
 			return err
@@ -61,12 +56,8 @@ func readVarUint32(r io.Reader, v *uint32) error {
 	return nil
 }
 
-func readVarInt1(r io.Reader, v *int8) error {
-	return binary.Read(r, binary.LittleEndian, v)
-}
-
 func readVarInt7(r io.Reader, v *int8) error {
-	if err := binary.Read(r, binary.LittleEndian, v); err != nil {
+	if err := read(r, v); err != nil {
 		return err
 	}
 	*v &= 0x7F

@@ -115,8 +115,8 @@ const (
 	opI32Mul                          // 0x6C
 	opI32DivS                         // 0x6D
 	opI32DivU                         // 0x6E
-	opI32Rems                         // 0x6F
-	opI32Remu                         // 0x70
+	opI32RemS                         // 0x6F
+	opI32RemU                         // 0x70
 	opI32And                          // 0x71
 	opI32Or                           // 0x72
 	opI32Xor                          // 0x73

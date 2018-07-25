@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"strings"
 )
 
 // magicnumber is a magic number which must appear as the very first bytes of a
@@ -33,6 +32,8 @@ type parser struct {
 	r *reader
 }
 
+var errDone = fmt.Errorf("done")
+
 // Parse parses the input to a WASM module.
 func Parse(r io.Reader) (*Module, error) {
 	p := &parser{
@@ -48,7 +49,7 @@ func Parse(r io.Reader) (*Module, error) {
 	for {
 		err := p.parseSection(&m.Sections)
 		if err != nil {
-			if strings.HasSuffix(err.Error(), io.EOF.Error()) {
+			if err == errDone {
 				break
 			}
 			return nil, fmt.Errorf("[0x%06x] parse section: %v", p.r.Index(), err)
@@ -75,12 +76,16 @@ func (p *parser) parsePreamble() error {
 }
 
 func (p *parser) parseSection(ss *[]interface{}) error {
-	sID, err := readByte(p.r)
-	if err != nil {
+	var sID uint8
+	if err := readVarUint7(p.r, &sID); err != nil {
+		if err == io.EOF {
+			return errDone
+		}
 		return fmt.Errorf("read section id: %v", err)
 	}
 
 	var s interface{}
+	var err error
 
 	switch sectionID(sID) {
 	case secCustom:
@@ -176,35 +181,37 @@ func (p *parser) parseCustomSection() (interface{}, error) {
 func (p *parser) parseTypeSection() (interface{}, error) {
 	var s SectionType
 
-	err := p.parseMultiSection(func(uint32) error {
-		var e typeEntry
+	err := p.parseMultiSection(func() error {
+		var e funcType
 
-		var form uint8
-		if err := read(p.r, &form); err != nil {
+		if err := readVarInt7(p.r, &e.Form); err != nil {
 			return fmt.Errorf("read form: %v", err)
 		}
-		e.Form = LanguageType(form)
 
 		var pc uint32
 		if err := readVarUint32(p.r, &pc); err != nil {
 			return fmt.Errorf("read func param count: %v", err)
 		}
-		e.Params = make([]ValueType, pc)
+		e.Params = make([]valueType, pc)
 		for i := range e.Params {
-			if err := read(p.r, &e.Params[i]); err != nil {
+			var t int8
+			if err := readVarInt7(p.r, &t); err != nil {
 				return fmt.Errorf("read function param type: %v", err)
 			}
+			e.Params[i] = valueType(t)
 		}
 
 		var rc uint8
-		if err := read(p.r, &rc); err != nil {
+		if err := readVarUint1(p.r, &rc); err != nil {
 			return fmt.Errorf("read number of returns from function: %v", err)
 		}
-		e.ReturnTypes = make([]ValueType, rc)
+		e.ReturnTypes = make([]valueType, rc)
 		for i := range e.ReturnTypes {
-			if err := read(p.r, &e.ReturnTypes[i]); err != nil {
+			var t int8
+			if err := readVarInt7(p.r, &t); err != nil {
 				return fmt.Errorf("read function return type: %v", err)
 			}
+			e.ReturnTypes[i] = valueType(t)
 		}
 
 		s.Entries = append(s.Entries, e)
@@ -220,36 +227,36 @@ func (p *parser) parseTypeSection() (interface{}, error) {
 func (p *parser) parseImportSection() (interface{}, error) {
 	var s SectionImport
 
-	err := p.parseMultiSection(func(uint32) error {
+	err := p.parseMultiSection(func() error {
 		var e importEntry
 
-		var moduleLen uint32
-		if err := readVarUint32(p.r, &moduleLen); err != nil {
+		var ml uint32
+		if err := readVarUint32(p.r, &ml); err != nil {
 			return fmt.Errorf("read module length: %v", err)
 		}
 
-		modName := make([]byte, moduleLen)
-		if err := read(p.r, modName); err != nil {
+		mn := make([]byte, ml)
+		if err := read(p.r, mn); err != nil {
 			return fmt.Errorf("read module name: %v", err)
 		}
-		e.Module = string(modName)
+		e.Module = string(mn)
 
-		var fieldLen uint32
-		if err := readVarUint32(p.r, &fieldLen); err != nil {
+		var fl uint32
+		if err := readVarUint32(p.r, &fl); err != nil {
 			return fmt.Errorf("read field length: %v", err)
 		}
 
-		fieldName := make([]byte, fieldLen)
-		if err := read(p.r, fieldName); err != nil {
+		fn := make([]byte, fl)
+		if err := read(p.r, fn); err != nil {
 			return fmt.Errorf("read field name")
 		}
-		e.Field = string(fieldName)
+		e.Field = string(fn)
 
 		var kind uint8
 		if err := read(p.r, &kind); err != nil {
 			return fmt.Errorf("read kind: %v", err)
 		}
-		e.Kind = ExternalKind(kind)
+		e.Kind = externalKind(kind)
 
 		switch e.Kind {
 		case ExtKindFunction:
@@ -259,9 +266,12 @@ func (p *parser) parseImportSection() (interface{}, error) {
 			}
 		case ExtKindTable:
 			e.TableType = &tableType{}
-			if err := read(p.r, &e.TableType.ElemType); err != nil {
+			var t int8
+			if err := readVarInt7(p.r, &t); err != nil {
 				return fmt.Errorf("read table element type: %v", err)
 			}
+			e.TableType.ElemType = elemType(t)
+
 			if err := p.parseResizableLimits(&e.TableType.Limits); err != nil {
 				return fmt.Errorf("read table resizable limits: %v", err)
 			}
@@ -272,12 +282,17 @@ func (p *parser) parseImportSection() (interface{}, error) {
 			}
 		case ExtKindGlobal:
 			e.GlobalType = &globalType{}
-			if err := read(p.r, &e.GlobalType.ContentType); err != nil {
+			var t int8
+			if err := readVarInt7(p.r, &t); err != nil {
 				return fmt.Errorf("read global content type: %v", err)
 			}
-			if err := read(p.r, &e.GlobalType.Mutable); err != nil {
+			e.GlobalType.ContentType = valueType(t)
+
+			var m uint8
+			if err := readVarUint1(p.r, &m); err != nil {
 				return fmt.Errorf("read global mutability: %v", err)
 			}
+			e.GlobalType.Mutable = m == 1
 		}
 
 		s.Entries = append(s.Entries, e)
@@ -293,7 +308,7 @@ func (p *parser) parseImportSection() (interface{}, error) {
 func (p *parser) parseFunctionSection() (interface{}, error) {
 	var s SectionFunction
 
-	err := p.parseMultiSection(func(uint32) error {
+	err := p.parseMultiSection(func() error {
 		var t uint32
 		if err := readVarUint32(p.r, &t); err != nil {
 			return fmt.Errorf("read function type: %v", err)
@@ -312,7 +327,7 @@ func (p *parser) parseFunctionSection() (interface{}, error) {
 func (p *parser) parseTableSection() (interface{}, error) {
 	var s SectionTable
 
-	err := p.parseMultiSection(func(uint32) error {
+	err := p.parseMultiSection(func() error {
 		var e memoryType
 
 		if err := p.parseResizableLimits(&e.Limits); err != nil {
@@ -332,7 +347,7 @@ func (p *parser) parseTableSection() (interface{}, error) {
 func (p *parser) parseMemorySection() (interface{}, error) {
 	var s SectionMemory
 
-	err := p.parseMultiSection(func(uint32) error {
+	err := p.parseMultiSection(func() error {
 		var e memoryType
 
 		if err := p.parseResizableLimits(&e.Limits); err != nil {
@@ -352,12 +367,14 @@ func (p *parser) parseMemorySection() (interface{}, error) {
 func (p *parser) parseGlobalSection() (interface{}, error) {
 	var s SectionGlobal
 
-	err := p.parseMultiSection(func(uint32) error {
+	err := p.parseMultiSection(func() error {
 		var e globalVariable
 
-		if err := read(p.r, &e.Type.ContentType); err != nil {
+		var t int8
+		if err := readVarInt7(p.r, &t); err != nil {
 			return fmt.Errorf("read global content type: %v", err)
 		}
+		e.Type.ContentType = valueType(t)
 
 		if err := read(p.r, &e.Type.Mutable); err != nil {
 			return fmt.Errorf("read global mutability: %v", err)
@@ -380,7 +397,7 @@ func (p *parser) parseGlobalSection() (interface{}, error) {
 func (p *parser) parseExportSection() (interface{}, error) {
 	var s SectionExport
 
-	err := p.parseMultiSection(func(uint32) error {
+	err := p.parseMultiSection(func() error {
 		var e exportEntry
 
 		var fl uint32
@@ -395,10 +412,10 @@ func (p *parser) parseExportSection() (interface{}, error) {
 		e.Field = string(f)
 
 		var kind uint8
-		if err := read(p.r, &kind); err != nil {
+		if err := readVarUint7(p.r, &kind); err != nil {
 			return fmt.Errorf("read kind: %v", err)
 		}
-		e.Kind = ExternalKind(kind)
+		e.Kind = externalKind(kind)
 
 		if err := readVarUint32(p.r, &e.Index); err != nil {
 			return fmt.Errorf("read index: %v", err)
@@ -427,7 +444,7 @@ func (p *parser) parseStartSection() (interface{}, error) {
 func (p *parser) parseElementSection() (interface{}, error) {
 	var s SectionElement
 
-	err := p.parseMultiSection(func(uint32) error {
+	err := p.parseMultiSection(func() error {
 		var e elemSegment
 
 		if err := readVarUint32(p.r, &e.Index); err != nil {
@@ -462,7 +479,7 @@ func (p *parser) parseElementSection() (interface{}, error) {
 func (p *parser) parseCodeSection() (interface{}, error) {
 	var s SectionCode
 
-	err := p.parseMultiSection(func(length uint32) error {
+	err := p.parseMultiSection(func() error {
 		var e functionBody
 
 		var bs uint32
@@ -489,7 +506,7 @@ func (p *parser) parseCodeSection() (interface{}, error) {
 			if err := read(p.r, &t); err != nil {
 				return fmt.Errorf("read local entry value type: %v", err)
 			}
-			l.Type = LanguageType(t)
+			l.Type = OpCode(t)
 
 			e.Locals[i] = l
 		}
@@ -513,7 +530,7 @@ func (p *parser) parseCodeSection() (interface{}, error) {
 func (p *parser) parseDataSection() (interface{}, error) {
 	var s SectionData
 
-	err := p.parseMultiSection(func(length uint32) error {
+	err := p.parseMultiSection(func() error {
 		var e dataSegment
 
 		if err := readVarUint32(p.r, &e.Index); err != nil {
@@ -605,14 +622,14 @@ func (p *parser) parseNameSection(name string, n uint32) (interface{}, error) {
 }
 
 func (p *parser) parseResizableLimits(l *resizableLimits) error {
-	var hasMax bool
-	if err := read(p.r, &hasMax); err != nil {
+	var hasMax uint8
+	if err := readVarUint1(p.r, &hasMax); err != nil {
 		return fmt.Errorf("flags: %v", err)
 	}
 	if err := readVarUint32(p.r, &l.Initial); err != nil {
 		return fmt.Errorf("initial: %v", err)
 	}
-	if !hasMax {
+	if hasMax == 0 {
 		return nil
 	}
 	if err := readVarUint32(p.r, &l.Maximum); err != nil {
@@ -622,16 +639,18 @@ func (p *parser) parseResizableLimits(l *resizableLimits) error {
 }
 
 // parseMultiSection reads the section payload length, then the number of
-// entries in the section and calls the call back n times with the payload
-// size. All sections except custom start with this pattern.
+// entries in the section and calls the call back n times. All sections except
+// custom start with this pattern.
 //
 // If f returns an error, further processing is not done and the error is
 // returned to the caller.
-func (p *parser) parseMultiSection(f func(n uint32) error) error {
+func (p *parser) parseMultiSection(f func() error) error {
 	var pl uint32
 	if err := readVarUint32(p.r, &pl); err != nil {
 		return fmt.Errorf("read type section payload length: %v", err)
 	}
+
+	s := p.r.Index()
 
 	var n uint32
 	if err := readVarUint32(p.r, &n); err != nil {
@@ -639,10 +658,16 @@ func (p *parser) parseMultiSection(f func(n uint32) error) error {
 	}
 
 	for i := uint32(0); i < n; i++ {
-		if err := f(pl); err != nil {
+		if err := f(); err != nil {
 			return fmt.Errorf("entry %d: %v", i, err)
 		}
 	}
+
+	d := p.r.Index() - s
+	if d != int(pl) {
+		return fmt.Errorf("section was not fully read, expected %d to be read but %d were read", pl, d)
+	}
+
 	return nil
 }
 

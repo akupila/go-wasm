@@ -9,10 +9,8 @@ type Module struct {
 	Sections []interface{}
 }
 
-// SectionCustom is a custom or name section.
-//
-// A name section provides debug information, a generic custom section is
-// something the compiler generated and not part of the spec.
+// SectionCustom is a custom or name section added by the compiler that
+// generated the WASM file.
 type SectionCustom struct {
 	// Name is the name of the section.
 	Name string
@@ -21,24 +19,26 @@ type SectionCustom struct {
 }
 
 // SectionType is a section for type definitions. The section declares all
-// function signatrues that will be used in the module.
+// function signatures that will be used in the module.
 type SectionType struct {
-	Entries []typeEntry
+	Entries []funcType
 }
 
-type typeEntry struct {
+type funcType struct {
 	// form is the value for a func type constructor (0x60)
-	Form LanguageType
+	Form int8
 	// Params contains the parameter types of the function.
-	Params []ValueType
+	Params []valueType
 	// ReturnCount returns the number of results from the function.
 	// The value will be 0 or 1. Future version may allow more:
 	// https://github.com/WebAssembly/design/issues/1146
 	ReturnCount uint8
 	// ReturnType is the result type if ReturnCount > 0
-	ReturnTypes []ValueType
+	ReturnTypes []valueType
 }
 
+// SectionImport is the section for declaring imports. It declares all imports
+// that will be used in the module.
 type SectionImport struct {
 	Entries []importEntry
 }
@@ -46,7 +46,7 @@ type SectionImport struct {
 type importEntry struct {
 	Module string
 	Field  string
-	Kind   ExternalKind
+	Kind   externalKind
 	// One of these is set, depending on the Kind
 	FunctionType *functionType
 	TableType    *tableType
@@ -63,12 +63,12 @@ type memoryType struct {
 }
 
 type tableType struct {
-	ElemType uint8
+	ElemType elemType
 	Limits   resizableLimits
 }
 
 type globalType struct {
-	ContentType uint8
+	ContentType valueType
 	Mutable     bool
 }
 
@@ -79,19 +79,35 @@ type resizableLimits struct {
 	Maximum uint32
 }
 
+// SectionFunction declares the signatures of all functions in the modules.
+// The definitions of the functions will be in the code section.
 type SectionFunction struct {
 	// Types contains a sequence of indices into the type section.
 	Types []uint32
 }
 
+// SectionTable declares a table section. A table is similar to linear memory,
+// whose elements, instead of being bytes, are opaque values of a particular
+// table element. This allows the table to contain values -- like GC
+// references, raw OS handles, or native pointers -- that are accessed by
+// WebAssembly code indirectly through an integer index.
+//
+// See: https://github.com/WebAssembly/design/blob/master/Semantics.md#table
 type SectionTable struct {
 	Entries []memoryType
 }
 
+// SectionMemory declares a memory section. The section provides an internal
+// definition of one linear memory.
+//
+// See: https://github.com/WebAssembly/design/blob/master/Modules.md#linear-memory-section
 type SectionMemory struct {
 	Entries []memoryType
 }
 
+// SectionGlobal provides an internal definition of global variables.
+//
+// See: https://github.com/WebAssembly/design/blob/master/Modules.md#global-section
 type SectionGlobal struct {
 	Globals []globalVariable
 }
@@ -101,20 +117,30 @@ type globalVariable struct {
 	Init []byte
 }
 
+// SectionExport declares exports from the WASM module.
+//
+// See: https://github.com/WebAssembly/design/blob/master/Modules.md#exports
 type SectionExport struct {
 	Entries []exportEntry
 }
 
 type exportEntry struct {
 	Field string
-	Kind  ExternalKind
+	Kind  externalKind
 	Index uint32
 }
 
+// SectionStart defines the start node, if the module has a start node defined.
+//
+// See: https://github.com/WebAssembly/design/blob/master/Modules.md#module-start-function
 type SectionStart struct {
 	Index uint32
 }
 
+// SectionElement defines element segments that initialize elements of imported
+// or internally-defined tables with any other definition in the module.
+//
+// See: https://github.com/WebAssembly/design/blob/master/Modules.md#elements-section
 type SectionElement struct {
 	Entries []elemSegment
 }
@@ -125,6 +151,7 @@ type elemSegment struct {
 	Elems  []uint32
 }
 
+// SectionCode contains a function body for every functino in the module.
 type SectionCode struct {
 	Bodies []functionBody
 }
@@ -136,9 +163,10 @@ type functionBody struct {
 
 type localEntry struct {
 	Count uint32
-	Type  LanguageType
+	Type  OpCode
 }
 
+// SectionData declares the initialized data that is loaded into the linear memory.
 type SectionData struct {
 	Entries []dataSegment
 }
@@ -149,6 +177,8 @@ type dataSegment struct {
 	Data   []byte
 }
 
+// SectionName is a custom section that provides debugging information, by
+// matching indices to human readable names.
 type SectionName struct {
 	Name      string
 	Module    string
@@ -174,39 +204,17 @@ type localName struct {
 	LocalMap nameMap
 }
 
-// ExternalKind defines the type for an external import.  type ExternalKind uint8
-type ExternalKind uint8
+type externalKind uint8
 
 const (
 	// ExtKindFunction indicates a Function import or definition.
-	ExtKindFunction ExternalKind = iota
+	ExtKindFunction externalKind = iota
 	// ExtKindTable indicates a Table import or definition.
 	ExtKindTable
 	// ExtKindMemory indicates a Memory import or definition.
 	ExtKindMemory
 	// ExtKindGlobal indicates a Global import or definition.
 	ExtKindGlobal
-)
-
-type LanguageType uint8
-
-const (
-	LanguageType_i32     LanguageType = 0x7f
-	LanguageType_i64     LanguageType = 0x7e
-	LanguageType_f32     LanguageType = 0x7d
-	LanguageType_f64     LanguageType = 0x7c
-	LanguageType_anyfunc LanguageType = 0x70
-	LanguageType_func    LanguageType = 0x60
-	LanguageType_block   LanguageType = 0x40
-)
-
-type ValueType uint8
-
-const (
-	ValueType_i32 ValueType = ValueType(LanguageType_i32)
-	ValueType_i64 ValueType = ValueType(LanguageType_i64)
-	ValueType_f32 ValueType = ValueType(LanguageType_f32)
-	ValueType_f64 ValueType = ValueType(LanguageType_f64)
 )
 
 type NameType uint8
@@ -216,3 +224,12 @@ const (
 	NameTypeFunction
 	NameTypeLocal
 )
+
+// varint7
+type valueType int8
+
+// varint7
+type langType int8
+
+// varint7
+type elemType int8
