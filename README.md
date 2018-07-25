@@ -87,7 +87,7 @@ for i, s := range mod.Sections {
 ## Installation
 
 ```
-go get github.com/akupila/go-wasm
+go get github.com/akupila/go-wasm/...
 ```
 
 ## Notes
