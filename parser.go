@@ -10,6 +10,9 @@ import (
 // wasm file.
 const magicnumber = 0x6d736100 // \0asm
 
+// opEnd is the op code for a section end
+const opEnd = 0x0b
+
 // sectionID the id of a section in the wasm file.
 type sectionID uint8
 
@@ -182,7 +185,7 @@ func (p *parser) parseTypeSection() (interface{}, error) {
 	var s SectionType
 
 	err := p.parseMultiSection(func() error {
-		var e funcType
+		var e FuncType
 
 		if err := readVarInt7(p.r, &e.Form); err != nil {
 			return fmt.Errorf("read form: %v", err)
@@ -228,7 +231,7 @@ func (p *parser) parseImportSection() (interface{}, error) {
 	var s SectionImport
 
 	err := p.parseMultiSection(func() error {
-		var e importEntry
+		var e ImportEntry
 
 		var ml uint32
 		if err := readVarUint32(p.r, &ml); err != nil {
@@ -256,16 +259,16 @@ func (p *parser) parseImportSection() (interface{}, error) {
 		if err := read(p.r, &kind); err != nil {
 			return fmt.Errorf("read kind: %v", err)
 		}
-		e.Kind = externalKind(kind)
+		e.Kind = ExternalKind(kind)
 
 		switch e.Kind {
 		case ExtKindFunction:
-			e.FunctionType = &functionType{}
+			e.FunctionType = &FunctionType{}
 			if err := readVarUint32(p.r, &e.FunctionType.Index); err != nil {
 				return fmt.Errorf("read function type index: %v", err)
 			}
 		case ExtKindTable:
-			e.TableType = &tableType{}
+			e.TableType = &TableType{}
 			var t int8
 			if err := readVarInt7(p.r, &t); err != nil {
 				return fmt.Errorf("read table element type: %v", err)
@@ -276,12 +279,12 @@ func (p *parser) parseImportSection() (interface{}, error) {
 				return fmt.Errorf("read table resizable limits: %v", err)
 			}
 		case ExtKindMemory:
-			e.MemoryType = &memoryType{}
+			e.MemoryType = &MemoryType{}
 			if err := p.parseResizableLimits(&e.MemoryType.Limits); err != nil {
 				return fmt.Errorf("read memory resizable limits: %v", err)
 			}
 		case ExtKindGlobal:
-			e.GlobalType = &globalType{}
+			e.GlobalType = &GlobalType{}
 			var t int8
 			if err := readVarInt7(p.r, &t); err != nil {
 				return fmt.Errorf("read global content type: %v", err)
@@ -328,7 +331,7 @@ func (p *parser) parseTableSection() (interface{}, error) {
 	var s SectionTable
 
 	err := p.parseMultiSection(func() error {
-		var e memoryType
+		var e MemoryType
 
 		if err := p.parseResizableLimits(&e.Limits); err != nil {
 			return fmt.Errorf("read memory resizable limits: %v", err)
@@ -348,7 +351,7 @@ func (p *parser) parseMemorySection() (interface{}, error) {
 	var s SectionMemory
 
 	err := p.parseMultiSection(func() error {
-		var e memoryType
+		var e MemoryType
 
 		if err := p.parseResizableLimits(&e.Limits); err != nil {
 			return fmt.Errorf("read memory resizable limits: %v", err)
@@ -368,7 +371,7 @@ func (p *parser) parseGlobalSection() (interface{}, error) {
 	var s SectionGlobal
 
 	err := p.parseMultiSection(func() error {
-		var e globalVariable
+		var e GlobalVariable
 
 		var t int8
 		if err := readVarInt7(p.r, &t); err != nil {
@@ -380,7 +383,7 @@ func (p *parser) parseGlobalSection() (interface{}, error) {
 			return fmt.Errorf("read global mutability: %v", err)
 		}
 
-		if err := readUntil(p.r, byte(opEnd), &e.Init); err != nil {
+		if err := readUntil(p.r, opEnd, &e.Init); err != nil {
 			return fmt.Errorf("read global init expression: %v", err)
 		}
 
@@ -398,7 +401,7 @@ func (p *parser) parseExportSection() (interface{}, error) {
 	var s SectionExport
 
 	err := p.parseMultiSection(func() error {
-		var e exportEntry
+		var e ExportEntry
 
 		var fl uint32
 		if err := readVarUint32(p.r, &fl); err != nil {
@@ -415,7 +418,7 @@ func (p *parser) parseExportSection() (interface{}, error) {
 		if err := readVarUint7(p.r, &kind); err != nil {
 			return fmt.Errorf("read kind: %v", err)
 		}
-		e.Kind = externalKind(kind)
+		e.Kind = ExternalKind(kind)
 
 		if err := readVarUint32(p.r, &e.Index); err != nil {
 			return fmt.Errorf("read index: %v", err)
@@ -445,13 +448,13 @@ func (p *parser) parseElementSection() (interface{}, error) {
 	var s SectionElement
 
 	err := p.parseMultiSection(func() error {
-		var e elemSegment
+		var e ElemSegment
 
 		if err := readVarUint32(p.r, &e.Index); err != nil {
 			return fmt.Errorf("read element index: %v", err)
 		}
 
-		if err := readUntil(p.r, byte(opEnd), &e.Offset); err != nil {
+		if err := readUntil(p.r, opEnd, &e.Offset); err != nil {
 			return fmt.Errorf("read offset expression: %v", err)
 		}
 
@@ -480,7 +483,7 @@ func (p *parser) parseCodeSection() (interface{}, error) {
 	var s SectionCode
 
 	err := p.parseMultiSection(func() error {
-		var e functionBody
+		var e FunctionBody
 
 		var bs uint32
 		if err := readVarUint32(p.r, &bs); err != nil {
@@ -493,10 +496,10 @@ func (p *parser) parseCodeSection() (interface{}, error) {
 		if err := readVarUint32(p.r, &localCount); err != nil {
 			return fmt.Errorf("read local count: %v", err)
 		}
-		e.Locals = make([]localEntry, localCount)
+		e.Locals = make([]LocalEntry, localCount)
 
 		for i := range e.Locals {
-			var l localEntry
+			var l LocalEntry
 
 			if err := readVarUint32(p.r, &l.Count); err != nil {
 				return fmt.Errorf("read local entry count: %v", err)
@@ -506,7 +509,7 @@ func (p *parser) parseCodeSection() (interface{}, error) {
 			if err := read(p.r, &t); err != nil {
 				return fmt.Errorf("read local entry value type: %v", err)
 			}
-			l.Type = OpCode(t)
+			l.Type = valueType(t)
 
 			e.Locals[i] = l
 		}
@@ -531,13 +534,13 @@ func (p *parser) parseDataSection() (interface{}, error) {
 	var s SectionData
 
 	err := p.parseMultiSection(func() error {
-		var e dataSegment
+		var e DataSegment
 
 		if err := readVarUint32(p.r, &e.Index); err != nil {
 			return fmt.Errorf("read data segment index: %v", err)
 		}
 
-		if err := readUntil(p.r, byte(opEnd), &e.Offset); err != nil {
+		if err := readUntil(p.r, opEnd, &e.Offset); err != nil {
 			return fmt.Errorf("read data section offset initializer: %v", err)
 		}
 
@@ -576,8 +579,8 @@ func (p *parser) parseNameSection(name string, n uint32) (interface{}, error) {
 		return nil, fmt.Errorf("read payload length: %v", err)
 	}
 
-	switch NameType(t) {
-	case NameTypeModule:
+	switch t {
+	case nameTypeModule:
 		var l uint32
 		if err := readVarUint32(p.r, &l); err != nil {
 			return nil, fmt.Errorf("read module name length: %v", err)
@@ -589,23 +592,23 @@ func (p *parser) parseNameSection(name string, n uint32) (interface{}, error) {
 		}
 
 		s.Module = string(name)
-	case NameTypeFunction:
-		s.Functions = &nameMap{}
+	case nameTypeFunction:
+		s.Functions = &NameMap{}
 		if err := p.parseNameMap(s.Functions); err != nil {
 			return nil, fmt.Errorf("read function name map: %v", err)
 		}
-	case NameTypeLocal:
+	case nameTypeLocal:
 		var count uint32
 		if err := readVarUint32(p.r, &count); err != nil {
 			return nil, fmt.Errorf("read local func name count: %v", err)
 		}
 
-		s.Locals = &locals{
-			Funcs: make([]localName, count),
+		s.Locals = &Locals{
+			Funcs: make([]LocalName, count),
 		}
 
 		for i := range s.Locals.Funcs {
-			var l localName
+			var l LocalName
 			if err := readVarUint32(p.r, &l.Index); err != nil {
 				return nil, fmt.Errorf("read local func index: %v", err)
 			}
@@ -615,13 +618,13 @@ func (p *parser) parseNameSection(name string, n uint32) (interface{}, error) {
 			s.Locals.Funcs[i] = l
 		}
 	default:
-		return nil, fmt.Errorf("unknown name section 0x%02x", t)
+		return nil, fmt.Errorf("unknown name type 0x%02x", t)
 	}
 
 	return &s, nil
 }
 
-func (p *parser) parseResizableLimits(l *resizableLimits) error {
+func (p *parser) parseResizableLimits(l *ResizableLimits) error {
 	var hasMax uint8
 	if err := readVarUint1(p.r, &hasMax); err != nil {
 		return fmt.Errorf("flags: %v", err)
@@ -671,16 +674,16 @@ func (p *parser) parseMultiSection(f func() error) error {
 	return nil
 }
 
-func (p *parser) parseNameMap(v *nameMap) error {
+func (p *parser) parseNameMap(v *NameMap) error {
 	var count uint32
 	if err := readVarUint32(p.r, &count); err != nil {
 		return fmt.Errorf("read name map count: %v", err)
 	}
 
-	v.Names = make([]naming, count)
+	v.Names = make([]Naming, count)
 
 	for i := range v.Names {
-		var n naming
+		var n Naming
 
 		if err := readVarUint32(p.r, &n.Index); err != nil {
 			return fmt.Errorf("read naming index: %v", err)

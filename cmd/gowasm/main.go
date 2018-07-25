@@ -6,6 +6,7 @@ import (
 	"os"
 
 	wasm "github.com/akupila/go-wasm"
+	"github.com/kr/pretty"
 )
 
 func main() {
@@ -31,6 +32,13 @@ func main() {
 	}
 
 	_ = mod
+
+	for _, sec := range mod.Sections {
+		switch s := sec.(type) {
+		case *wasm.SectionImport:
+			pretty.Println(s)
+		}
+	}
 
 	// pretty.Println(mod)
 

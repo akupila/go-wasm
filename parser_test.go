@@ -3,6 +3,7 @@ package wasm
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,6 +43,25 @@ func TestParser(t *testing.T) {
 			// TODO(akupila): add more assertions
 		})
 	}
+}
+
+var filename = "testdata/helloworld.wasm"
+
+func ExampleParse() {
+	f, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	mod, err := Parse(f)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("The file has %d sections\n", len(mod.Sections))
+	// Output:
+	// The file has 12 sections
 }
 
 func BenchmarkParser(b *testing.B) {
