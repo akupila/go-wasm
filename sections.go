@@ -126,7 +126,7 @@ type SectionFunction struct {
 // references, raw OS handles, or native pointers -- that are accessed by
 // WebAssembly code indirectly through an integer index.
 //
-// See: https://github.com/WebAssembly/design/blob/master/Semantics.md#table
+// https://github.com/WebAssembly/design/blob/master/Semantics.md#table
 type SectionTable struct {
 	Entries []MemoryType
 }
@@ -134,14 +134,14 @@ type SectionTable struct {
 // SectionMemory declares a memory section. The section provides an internal
 // definition of one linear memory.
 //
-// See: https://github.com/WebAssembly/design/blob/master/Modules.md#linear-memory-section
+// https://github.com/WebAssembly/design/blob/master/Modules.md#linear-memory-section
 type SectionMemory struct {
 	Entries []MemoryType
 }
 
 // SectionGlobal provides an internal definition of global variables.
 //
-// See: https://github.com/WebAssembly/design/blob/master/Modules.md#global-section
+// https://github.com/WebAssembly/design/blob/master/Modules.md#global-section
 type SectionGlobal struct {
 	Globals []GlobalVariable
 }
@@ -158,7 +158,7 @@ type GlobalVariable struct {
 
 // SectionExport declares exports from the WASM module.
 //
-// See: https://github.com/WebAssembly/design/blob/master/Modules.md#exports
+// https://github.com/WebAssembly/design/blob/master/Modules.md#exports
 type SectionExport struct {
 	Entries []ExportEntry
 }
@@ -173,24 +173,24 @@ type ExportEntry struct {
 
 	// Index is the index into the corresponding index space.
 	//
-	// See: https://github.com/WebAssembly/design/blob/master/Modules.md#function-index-space
+	// https://github.com/WebAssembly/design/blob/master/Modules.md#function-index-space
 	Index uint32
 }
 
 // SectionStart defines the start node, if the module has a start node defined.
 //
-// See: https://github.com/WebAssembly/design/blob/master/Modules.md#module-start-function
+// https://github.com/WebAssembly/design/blob/master/Modules.md#module-start-function
 type SectionStart struct {
 	// Index is the index to the start function in the function index space.
 	//
-	// See: https://github.com/WebAssembly/design/blob/master/Modules.md#function-index-space
+	// https://github.com/WebAssembly/design/blob/master/Modules.md#function-index-space
 	Index uint32
 }
 
 // SectionElement defines element segments that initialize elements of imported
 // or internally-defined tables with any other definition in the module.
 //
-// See: https://github.com/WebAssembly/design/blob/master/Modules.md#elements-section
+// https://github.com/WebAssembly/design/blob/master/Modules.md#elements-section
 type SectionElement struct {
 	// Entries contains the elements.
 	Entries []ElemSegment
@@ -246,7 +246,7 @@ type SectionData struct {
 type DataSegment struct {
 	// Index is the linear memory index.
 	//
-	// See: https://github.com/WebAssembly/design/blob/master/Modules.md#linear-memory-index-space
+	// https://github.com/WebAssembly/design/blob/master/Modules.md#linear-memory-index-space
 	Index uint32
 
 	// Offset is an init expression (wasm bytecode) that computes the offset to
