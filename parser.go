@@ -187,23 +187,21 @@ func (p *parser) parseCustomSection(base *section) (Section, error) {
 func (p *parser) parseTypeSection(base *section) (*SectionType, error) {
 	s := SectionType{section: base}
 
-	err := p.parseMultiSection(func() error {
+	err := p.loopCount(func() error {
 		var e FuncType
 
 		if err := readVarInt7(p.r, &e.Form); err != nil {
 			return fmt.Errorf("read form: %v", err)
 		}
 
-		var pc uint32
-		if err := readVarUint32(p.r, &pc); err != nil {
-			return fmt.Errorf("read func param count: %v", err)
-		}
-		e.Params = make([]int8, pc)
-		for i := range e.Params {
-			if err := readVarInt7(p.r, &e.Params[i]); err != nil {
+		p.loopCount(func() error {
+			var param int8
+			if err := readVarInt7(p.r, &param); err != nil {
 				return fmt.Errorf("read function param type: %v", err)
 			}
-		}
+			e.Params = append(e.Params, param)
+			return nil
+		})
 
 		var rc uint8
 		if err := readVarUint1(p.r, &rc); err != nil {
@@ -229,7 +227,7 @@ func (p *parser) parseTypeSection(base *section) (*SectionType, error) {
 func (p *parser) parseImportSection(base *section) (*SectionImport, error) {
 	s := SectionImport{section: base}
 
-	err := p.parseMultiSection(func() error {
+	err := p.loopCount(func() error {
 		var e ImportEntry
 
 		var ml uint32
@@ -306,7 +304,7 @@ func (p *parser) parseImportSection(base *section) (*SectionImport, error) {
 func (p *parser) parseFunctionSection(base *section) (*SectionFunction, error) {
 	s := SectionFunction{section: base}
 
-	err := p.parseMultiSection(func() error {
+	err := p.loopCount(func() error {
 		var t uint32
 		if err := readVarUint32(p.r, &t); err != nil {
 			return fmt.Errorf("read function type: %v", err)
@@ -325,7 +323,7 @@ func (p *parser) parseFunctionSection(base *section) (*SectionFunction, error) {
 func (p *parser) parseTableSection(base *section) (*SectionTable, error) {
 	s := SectionTable{section: base}
 
-	err := p.parseMultiSection(func() error {
+	err := p.loopCount(func() error {
 		var e MemoryType
 
 		if err := p.parseResizableLimits(&e.Limits); err != nil {
@@ -345,7 +343,7 @@ func (p *parser) parseTableSection(base *section) (*SectionTable, error) {
 func (p *parser) parseMemorySection(base *section) (*SectionMemory, error) {
 	s := SectionMemory{section: base}
 
-	err := p.parseMultiSection(func() error {
+	err := p.loopCount(func() error {
 		var e MemoryType
 
 		if err := p.parseResizableLimits(&e.Limits); err != nil {
@@ -365,7 +363,7 @@ func (p *parser) parseMemorySection(base *section) (*SectionMemory, error) {
 func (p *parser) parseGlobalSection(base *section) (*SectionGlobal, error) {
 	s := SectionGlobal{section: base}
 
-	err := p.parseMultiSection(func() error {
+	err := p.loopCount(func() error {
 		var e GlobalVariable
 
 		if err := readVarInt7(p.r, &e.Type.ContentType); err != nil {
@@ -393,7 +391,7 @@ func (p *parser) parseGlobalSection(base *section) (*SectionGlobal, error) {
 func (p *parser) parseExportSection(base *section) (*SectionExport, error) {
 	s := SectionExport{section: base}
 
-	err := p.parseMultiSection(func() error {
+	err := p.loopCount(func() error {
 		var e ExportEntry
 
 		var fl uint32
@@ -440,7 +438,7 @@ func (p *parser) parseStartSection(base *section) (*SectionStart, error) {
 func (p *parser) parseElementSection(base *section) (*SectionElement, error) {
 	s := SectionElement{section: base}
 
-	err := p.parseMultiSection(func() error {
+	err := p.loopCount(func() error {
 		var e ElemSegment
 
 		if err := readVarUint32(p.r, &e.Index); err != nil {
@@ -475,7 +473,7 @@ func (p *parser) parseElementSection(base *section) (*SectionElement, error) {
 func (p *parser) parseCodeSection(base *section) (*SectionCode, error) {
 	s := SectionCode{section: base}
 
-	err := p.parseMultiSection(func() error {
+	err := p.loopCount(func() error {
 		var e FunctionBody
 
 		var bs uint32
@@ -485,25 +483,20 @@ func (p *parser) parseCodeSection(base *section) (*SectionCode, error) {
 
 		end := p.r.Index() + int(bs)
 
-		var localCount uint32
-		if err := readVarUint32(p.r, &localCount); err != nil {
-			return fmt.Errorf("read local count: %v", err)
-		}
-		e.Locals = make([]LocalEntry, localCount)
-
-		for i := range e.Locals {
+		p.loopCount(func() error {
 			var l LocalEntry
 
 			if err := readVarUint32(p.r, &l.Count); err != nil {
 				return fmt.Errorf("read local entry count: %v", err)
 			}
-
 			if err := read(p.r, &l.Type); err != nil {
 				return fmt.Errorf("read local entry value type: %v", err)
 			}
 
-			e.Locals[i] = l
-		}
+			e.Locals = append(e.Locals, l)
+
+			return nil
+		})
 
 		numBytes := end - p.r.Index()
 		e.Code = make([]byte, numBytes)
@@ -524,7 +517,7 @@ func (p *parser) parseCodeSection(base *section) (*SectionCode, error) {
 func (p *parser) parseDataSection(base *section) (*SectionData, error) {
 	s := SectionData{section: base}
 
-	err := p.parseMultiSection(func() error {
+	err := p.loopCount(func() error {
 		var e DataSegment
 
 		if err := readVarUint32(p.r, &e.Index); err != nil {
@@ -597,25 +590,18 @@ func (p *parser) parseNameSection(base *section, name string, n uint32) (*Sectio
 			return nil, fmt.Errorf("read function name map: %v", err)
 		}
 	case nameTypeLocal:
-		var count uint32
-		if err := readVarUint32(p.r, &count); err != nil {
-			return nil, fmt.Errorf("read local func name count: %v", err)
-		}
-
-		s.Locals = &Locals{
-			Funcs: make([]LocalName, count),
-		}
-
-		for i := range s.Locals.Funcs {
+		s.Locals = &Locals{}
+		p.loopCount(func() error {
 			var l LocalName
 			if err := readVarUint32(p.r, &l.Index); err != nil {
-				return nil, fmt.Errorf("read local func index: %v", err)
+				return fmt.Errorf("read local func index: %v", err)
 			}
 			if err := p.parseNameMap(&l.LocalMap); err != nil {
-				return nil, fmt.Errorf("read local name map: %v", err)
+				return fmt.Errorf("read local name map: %v", err)
 			}
-			s.Locals.Funcs[i] = l
-		}
+			s.Locals.Funcs = append(s.Locals.Funcs, l)
+			return nil
+		})
 	default:
 		return nil, fmt.Errorf("unknown name type 0x%02x", t)
 	}
@@ -640,14 +626,12 @@ func (p *parser) parseResizableLimits(l *ResizableLimits) error {
 	return nil
 }
 
-// parseMultiSection reads the section payload length, then the number of
-// entries in the section and calls the call back n times. All sections except
-// custom start with this pattern.
+// loopCount reads a varuint32 count and and calls the f n times. All sections
+// except custom start with this pattern.
 //
 // If f returns an error, further processing is not done and the error is
 // returned to the caller.
-func (p *parser) parseMultiSection(f func() error) error {
-
+func (p *parser) loopCount(f func() error) error {
 	var n uint32
 	if err := readVarUint32(p.r, &n); err != nil {
 		return fmt.Errorf("read section count: %v", err)
@@ -663,14 +647,7 @@ func (p *parser) parseMultiSection(f func() error) error {
 }
 
 func (p *parser) parseNameMap(v *NameMap) error {
-	var count uint32
-	if err := readVarUint32(p.r, &count); err != nil {
-		return fmt.Errorf("read name map count: %v", err)
-	}
-
-	v.Names = make([]Naming, count)
-
-	for i := range v.Names {
+	p.loopCount(func() error {
 		var n Naming
 
 		if err := readVarUint32(p.r, &n.Index); err != nil {
@@ -688,8 +665,10 @@ func (p *parser) parseNameMap(v *NameMap) error {
 		}
 
 		n.Name = string(name)
+		v.Names = append(v.Names, n)
 
-		v.Names[i] = n
-	}
+		return nil
+	})
+
 	return nil
 }

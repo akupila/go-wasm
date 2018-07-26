@@ -2,7 +2,7 @@
 	"Entries": [
 		{
 			"Form": 96,
-			"Params": [],
+			"Params": null,
 			"ReturnCount": 0,
 			"ReturnTypes": [
 				127
