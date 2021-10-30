@@ -324,10 +324,10 @@ func (p *parser) parseTableSection(base *section) (*SectionTable, error) {
 	s := SectionTable{section: base}
 
 	err := p.loopCount(func() error {
-		var e MemoryType
+		var e TableType
 
-		if err := p.parseResizableLimits(&e.Limits); err != nil {
-			return fmt.Errorf("read memory resizable limits: %v", err)
+		if err := p.parseTableType(&e); err != nil {
+			return fmt.Errorf("read table type: %v", err)
 		}
 
 		s.Entries = append(s.Entries, e)
@@ -622,6 +622,18 @@ func (p *parser) parseResizableLimits(l *ResizableLimits) error {
 	}
 	if err := readVarUint32(p.r, &l.Maximum); err != nil {
 		return fmt.Errorf("maximum: %v", err)
+	}
+	return nil
+}
+
+func (p *parser) parseTableType(t *TableType) error {
+	refType, err := readByte(p.r)
+	if err != nil {
+		return fmt.Errorf("read table type limits: %v", err)
+	}
+	t.ElemType = int8(refType)
+	if err := p.parseResizableLimits(&t.Limits); err != nil {
+		return fmt.Errorf("read memory resizable limits: %v", err)
 	}
 	return nil
 }

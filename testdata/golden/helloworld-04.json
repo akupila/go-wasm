@@ -1,9 +1,10 @@
 {
 	"Entries": [
 		{
+			"ElemType": 112,
 			"Limits": {
-				"Initial": 0,
-				"Maximum": 5682
+				"Initial": 5682,
+				"Maximum": 0
 			}
 		}
 	]

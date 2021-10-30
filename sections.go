@@ -152,7 +152,7 @@ type SectionFunction struct {
 //
 // https://github.com/WebAssembly/design/blob/master/Semantics.md#table
 type SectionTable struct {
-	Entries []MemoryType
+	Entries []TableType
 
 	*section
 }
